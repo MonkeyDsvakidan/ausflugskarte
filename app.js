@@ -115,8 +115,9 @@
   if (state.start === "hier") state.start = "geroldswil"; // Standort wird nie gespeichert
   if (!(state.tag >= 0 && state.tag < 7)) state.tag = 1;
   state.q = ""; state.detail = null;
+  state.drei = false; // Start immer flach: Übersicht und Marker sind so besser bedienbar
   let markiert = store.get("ausflug-markiert") || {};
-  const speichern = () => { const { q, detail, ...rest } = state; store.set("ausflug-v3", rest); };
+  const speichern = () => { const { q, detail, drei, ...rest } = state; store.set("ausflug-v3", rest); };
 
   // ================= Farbschema =================
   const dunkel = () => state.theme === "dark" || (state.theme === "system" && mq("(prefers-color-scheme: dark)"));
@@ -191,18 +192,57 @@
   // ================= Karte =================
   const WMTS = (layer, ext) => `https://wmts.geo.admin.ch/1.0.0/${layer}/default/current/3857/{z}/{x}/{y}.${ext}`;
   const ATTR = '<a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener">© swisstopo</a>';
+  const CH_BOUNDS = [5.14, 45.39, 11.48, 48.23]; // swisstopo liefert nur hier Kacheln, ausserhalb Fehler 400
+  const DEM_TILES = ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"];
   const rasterStil = (tiles, paint = {}, hintergrund = "#f2f3f5", maxzoom = 18) => ({
     version: 8,
-    sources: { basis: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom, attribution: ATTR } },
+    sources: { basis: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom, bounds: CH_BOUNDS, attribution: ATTR } },
     layers: [{ id: "hintergrund", type: "background", paint: { "background-color": hintergrund } }, { id: "basis", type: "raster", source: "basis", paint }]
   });
+  const VEKTOR = "https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json";
   const BASEN = {
-    hell: "https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json",
+    hell: VEKTOR,
+    nacht: VEKTOR, // dieselbe Vektorkarte, Farben werden beim Laden dunkel umgerechnet (nachtMachen)
     karte: rasterStil(WMTS("ch.swisstopo.pixelkarte-farbe", "jpeg")),
     luftbild: rasterStil(WMTS("ch.swisstopo.swissimage", "jpeg"), {}, "#2c3a2e", 19),
-    nacht: rasterStil(WMTS("ch.swisstopo.pixelkarte-grau", "jpeg"), { "raster-brightness-min": 0.92, "raster-brightness-max": 0.14, "raster-contrast": 0.1, "raster-saturation": -0.3 }, "#1a1f27")
+    nachtRaster: rasterStil(WMTS("ch.swisstopo.pixelkarte-grau", "jpeg"), { "raster-brightness-min": 0.92, "raster-brightness-max": 0.14, "raster-contrast": 0.1, "raster-saturation": -0.3 }, "#1a1f27")
   };
-  const effBasis = () => state.basis === "auto" ? (dunkel() ? "nacht" : "hell") : state.basis;
+  let vektorKaputt = false; // Vektorkarte nicht erreichbar → Rasterkarten als Ersatz
+  const effBasis = () => {
+    const b = state.basis === "auto" ? (dunkel() ? "nacht" : "hell") : state.basis;
+    return vektorKaputt ? ({ hell: "karte", nacht: "nachtRaster" }[b] || b) : b;
+  };
+  const dunklerStil = () => !["hell", "karte"].includes(aktuellerStil);
+
+  // Helle Farbe → dunkle Farbe (Helligkeit umgedreht, weniger Sättigung). Reliefflächen werden zu Schatten.
+  function nachtFarbe(c, relief) {
+    let m, r, g, b, a = 1, h = null, s, l;
+    if ((m = c.match(/^rgba?\(([^)]+)\)$/i))) { [r, g, b, a = 1] = m[1].split(",").map(Number); r /= 255; g /= 255; b /= 255; }
+    else if ((m = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i))) {
+      const x = m[1].length === 3 ? [...m[1]].map(z => z + z).join("") : m[1], n = parseInt(x, 16);
+      r = (n >> 16) / 255; g = (n >> 8 & 255) / 255; b = (n & 255) / 255;
+    } else if ((m = c.match(/^hsla?\(([^)]+)\)$/i))) { [h, s, l, a = 1] = m[1].split(",").map(parseFloat); s /= 100; l /= 100; }
+    else return null;
+    if (h == null) {
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      l = (mx + mn) / 2; s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+      h = !d ? 0 : mx === r ? 60 * (((g - b) / d + 6) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+    }
+    if (relief) return `rgba(0,0,0,${Math.min(0.6, (1 - l) * 2.4).toFixed(3)})`;
+    const satt = h > 250 && h < 345 ? 12 : 55; // Grenzen/Ländernamen sind rosa → fast grau statt lila
+    return `hsla(${Math.round(h)},${(s * satt).toFixed(1)}%,${((0.13 + (1 - l) * 0.62) * 100).toFixed(1)}%,${a})`;
+  }
+  function nachtMachen(_, stil) {
+    const um = (v, relief) => typeof v === "string" ? (nachtFarbe(v, relief) ?? v)
+      : Array.isArray(v) ? v.map(x => um(x, relief))
+      : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, um(x, relief)])) : v;
+    stil.layers.forEach(l => {
+      if (!l.paint) return;
+      for (const k of Object.keys(l.paint)) if (k.endsWith("color")) l.paint[k] = um(l.paint[k], /^relief/.test(l.source || ""));
+    });
+    return stil;
+  }
+  const stilOptionen = b => b === "nacht" ? { diff: false, transformStyle: nachtMachen } : { diff: false };
 
   const glOk = (() => { try { const c = document.createElement("canvas"); return !!window.maplibregl && !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; } })();
   let map = null, aktuellerStil = null, stilGeladen = false, kachelFehler = 0, kartenBereit = false;
@@ -224,16 +264,24 @@
     if (!map) return;
     const b = effBasis(); if (b === aktuellerStil) return;
     aktuellerStil = b; stilGeladen = false;
-    map.setStyle(BASEN[b], { diff: false });
+    map.setStyle(BASEN[b], stilOptionen(b));
     $$("#basen .basis").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === state.basis)));
   }
 
   function overlaysHinzu() {
-    if (!map.getSource("dem")) map.addSource("dem", { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], encoding: "terrarium", tileSize: 256, maxzoom: 14, attribution: 'Gelände: <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Mapzen Terrain Tiles</a>' });
-    map.addSource("wege", { type: "raster", tiles: [WMTS("ch.swisstopo.swisstlm3d-wanderwege", "png")], tileSize: 256, maxzoom: 18, attribution: ATTR });
+    if (!map.getSource("dem")) map.addSource("dem", { type: "raster-dem", tiles: DEM_TILES, encoding: "terrarium", tileSize: 256, maxzoom: 14, attribution: 'Gelände: <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Mapzen Terrain Tiles</a>' });
+    const nacht = dunklerStil();
+    // Schattierung macht die Berge in 3D sichtbar (helle Karte ist sonst fast weiss); Luftbild und Landeskarte haben eigene
+    if (["hell", "nacht", "nachtRaster"].includes(aktuellerStil)) {
+      map.addSource("schatten", { type: "raster-dem", tiles: DEM_TILES, encoding: "terrarium", tileSize: 256, maxzoom: 14 });
+      const vorSchrift = map.getStyle().layers.find(l => l.type === "symbol")?.id;
+      map.addLayer({ id: "schatten", type: "hillshade", source: "schatten", layout: { visibility: "none" }, paint: nacht
+        ? { "hillshade-exaggeration": 0.8, "hillshade-shadow-color": "rgba(0,0,0,0.7)", "hillshade-highlight-color": "rgba(205,218,238,0.24)", "hillshade-accent-color": "rgba(0,0,0,0.3)" }
+        : { "hillshade-exaggeration": 0.55, "hillshade-shadow-color": "rgba(40,48,62,0.55)", "hillshade-highlight-color": "rgba(255,255,255,0.35)", "hillshade-accent-color": "rgba(40,48,62,0.25)" } }, vorSchrift);
+    }
+    map.addSource("wege", { type: "raster", tiles: [WMTS("ch.swisstopo.swisstlm3d-wanderwege", "png")], tileSize: 256, maxzoom: 18, bounds: CH_BOUNDS, attribution: ATTR });
     map.addLayer({ id: "wege", type: "raster", source: "wege", minzoom: 11, paint: { "raster-opacity": 0.7 }, layout: { visibility: state.wege ? "visible" : "none" } });
     map.addSource("route", { type: "geojson", data: routeDaten });
-    const nacht = aktuellerStil === "nacht" || aktuellerStil === "luftbild";
     map.addLayer({ id: "route-halo", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": nacht ? FARBE.schiefer : FARBE.weiss, "line-width": 8, "line-opacity": 0.85 } });
     map.addLayer({ id: "route", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": nacht ? FARBE.gelb : FARBE.schiefer, "line-width": 3.5, "line-dasharray": [0, 4, 3] } });
     terrainAnwenden(false);
@@ -243,10 +291,18 @@
     if (!map || !stilGeladen) return;
     $("#drei").setAttribute("aria-pressed", String(state.drei));
     $("#sw-drei").checked = state.drei;
+    if (map.getLayer("schatten")) map.setLayoutProperty("schatten", "visibility", state.drei ? "visible" : "none");
     if (state.drei) {
-      map.setTerrain({ source: "dem", exaggeration: 1.3 });
-      try { map.setSky({ "sky-color": dunkel() ? "#0e1420" : "#9fc3ea", "horizon-color": dunkel() ? "#283447" : "#eef3f8", "fog-color": dunkel() ? "#1a1f27" : "#e9eef4", "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.2 }); } catch {}
-      if (kamera && map.getPitch() < 30) map.easeTo({ pitch: 60, duration: ruhig() ? 0 : 1000 });
+      map.setTerrain({ source: "dem", exaggeration: 1.6 });
+      const d = dunkel() || aktuellerStil.startsWith("nacht");
+      try { map.setSky({ "sky-color": d ? "#0e1420" : "#9fc3ea", "horizon-color": d ? "#283447" : "#eef3f8", "fog-color": d ? "#1a1f27" : "#e9eef4", "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.2 }); } catch {}
+      // Aus der Schweiz-Übersicht sind Berge zu klein: näher heran, damit man das Gelände sieht
+      if (kamera && map.getZoom() < 8.2) {
+        const a = state.detail != null ? daten[state.detail] : null;
+        const ziel = a ? [a.lng, a.lat] : map.getZoom() < 7.5 ? [7.95, 46.72] : map.getCenter(); // ganze Schweiz → Berner Oberland
+        map.easeTo({ center: ziel, zoom: 8.6, pitch: 62, bearing: map.getBearing() || -12, padding: camPad(), duration: ruhig() ? 0 : 1600 });
+      }
+      else if (kamera && map.getPitch() < 30) map.easeTo({ pitch: 60, duration: ruhig() ? 0 : 1000 });
     } else {
       map.setTerrain(null);
       if (kamera && map.getPitch() > 0) map.easeTo({ pitch: 0, bearing: 0, duration: ruhig() ? 0 : 800 });
@@ -260,23 +316,30 @@
     }
     aktuellerStil = effBasis();
     map = new maplibregl.Map({
-      container: "map", style: BASEN[aktuellerStil], bounds: [[5.96, 45.82], [10.49, 47.81]], fitBoundsOptions: { padding: camPad() },
+      container: "map", bounds: [[5.96, 45.82], [10.49, 47.81]], fitBoundsOptions: { padding: camPad() },
       maxPitch: 75, canvasContextAttributes: { preserveDrawingBuffer: true }, preserveDrawingBuffer: true, attributionControl: { compact: true }, dragRotate: true, cooperativeGestures: false, fadeDuration: 150
     });
+    map.setStyle(BASEN[aktuellerStil], stilOptionen(aktuellerStil));
     $$("#basen .basis").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === state.basis)));
     map.once("idle", () => { kartenBereit = true; });
     map.on("style.load", () => { stilGeladen = true; overlaysHinzu(); map.once("idle", () => map.triggerRepaint()); });
     map.on("error", e => {
       const istKachel = !!(e?.tile || e?.sourceId);
-      if (!stilGeladen && aktuellerStil === "hell") { // Vektorstil nicht erreichbar → Landeskarte
-        aktuellerStil = null; state.basis = "karte"; stilAnwenden(); toast("Die helle Karte lädt nicht. Ich zeige die Landeskarte."); return;
+      if (!stilGeladen && (aktuellerStil === "hell" || aktuellerStil === "nacht")) { // Vektorkarte nicht erreichbar → Rasterkarte
+        const war = aktuellerStil; vektorKaputt = true; aktuellerStil = null; stilAnwenden();
+        toast(war === "hell" ? "Die helle Karte lädt nicht. Ich zeige die Landeskarte." : "Die Nachtkarte lädt nicht. Ich zeige die einfache Nachtkarte."); return;
       }
-      if (istKachel && ++kachelFehler === 12) kartenFehler("Die Kartenbilder kommen nicht an. Prüfe die Verbindung oder wähle einen anderen Kartenstil.");
+      const st = e?.error?.status; // 4xx = Kachel gibt es dort nicht (z. B. am Horizont), kein Verbindungsproblem
+      if (istKachel && !(st >= 400 && st < 500) && ++kachelFehler === 12) kartenFehler("Die Kartenbilder kommen nicht an. Prüfe die Verbindung oder wähle einen anderen Kartenstil.");
     });
     map.on("data", e => { if (e.dataType === "source" && e.tile) { kachelFehler = 0; $("#map-error").hidden = true; } });
     map.on("moveend", markerAktualisieren);
     map.on("rotate", () => { $("#kompass svg").style.transform = `rotate(${-map.getBearing()}deg)`; });
-    map.on("pitchend", () => { if (map.getPitch() > 20 && !state.drei) { state.drei = true; terrainAnwenden(false); speichern(); } });
+    map.on("pitchend", () => { // Knopf folgt dem Kippen mit zwei Fingern
+      const p = map.getPitch();
+      if (p > 20 && !state.drei) { state.drei = true; terrainAnwenden(false); }
+      else if (p < 3 && state.drei) { state.drei = false; terrainAnwenden(false); }
+    });
     map.on("movestart", e => { if (e.originalEvent) orbitStopp(); });
     map.on("click", () => $("#ebenen").hidden || ebenenZu());
     cluster = new Supercluster({ radius: 52, maxZoom: 10 });
