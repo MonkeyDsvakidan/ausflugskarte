@@ -4,49 +4,75 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ausflugskarte Schweiz</title>
-<meta name="description" content="Gesammelte Wanderungen und Ausflüge aus Reels, gefiltert nach freier Zeit und Anreise.">
+<meta name="description" content="Wanderungen und Ausflüge in der Schweiz, gefiltert nach freier Zeit, Anreise und Wetter.">
+<meta name="theme-color" content="#242a34">
+<link rel="canonical" href="https://monkeydsvakidan.github.io/ausflugskarte/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ausflugskarte Schweiz">
+<meta property="og:description" content="Wanderungen und Ausflüge, gefiltert nach freier Zeit, Anreise und Wetter.">
+<meta property="og:image" content="https://monkeydsvakidan.github.io/ausflugskarte/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://monkeydsvakidan.github.io/ausflugskarte/">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ausflüge">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,600..800&family=Figtree:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-/* Layout: Seitenleiste mit Filtern + Liste links, Karte rechts; auf dem Handy Karte oben, Liste darunter.
-   Farben angelehnt an die Schweizer Wanderweg-Signalisation: gelb = Akzent, rot-weiss / blau-weiss nur für die Schwierigkeit. */
+/* Layout: Seitenleiste (Kopf, Frage «Ich habe … am …», Tipp-Wegweiser, Filter, Liste) links, Karte rechts.
+   Handy: Karte oben (fix beim Scrollen), alles andere darunter, Filter eingeklappt.
+   Bildsprache: Schweizer Wanderweg-Wegweiser (gelber Pfeil, schwarze Schrift) und Höhenlinien der Landeskarte. */
 :root {
-  --bg: oklch(0.985 0.004 250);
+  --bg: oklch(0.975 0.006 250);
   --surface: oklch(1 0 0);
+  --sunken: oklch(0.95 0.008 250);
   --fg: oklch(0.24 0.02 250);
   --muted: oklch(0.47 0.02 250);
-  --line: rgb(0 0 0 / .1);
-  --accent: oklch(0.87 0.17 95);      /* Wanderweg-Gelb */
-  --accent-ink: oklch(0.24 0.03 90);  /* Text auf Gelb */
-  --berg: oklch(0.55 0.2 27);         /* Bergwanderweg rot */
-  --alpin: oklch(0.52 0.15 255);      /* Alpinwanderweg blau */
-  --pin: oklch(0.28 0.02 250);
-  --shadow: 0 1px 2px rgb(0 0 0 / .12), 0 4px 16px rgb(0 0 0 / .08);
+  --line: rgb(0 0 0 / .09);
+  --head: oklch(0.27 0.022 255);       /* Schiefer, Kopfband (beide Themen) */
+  --head-fg: oklch(0.96 0.01 250);
+  --head-muted: oklch(0.78 0.02 250);
+  --accent: oklch(0.87 0.17 95);       /* Wanderweg-Gelb */
+  --accent-ink: oklch(0.22 0.03 90);
+  --berg: oklch(0.55 0.2 27);
+  --alpin: oklch(0.52 0.15 255);
+  --gut: oklch(0.52 0.13 150);
+  --schlecht: oklch(0.55 0.17 40);
+  --pin: oklch(0.27 0.022 255);
+  --shadow-1: 0 1px 2px rgb(20 30 50 / .08), 0 2px 8px rgb(20 30 50 / .06);
+  --shadow-2: 0 2px 4px rgb(20 30 50 / .1), 0 12px 32px rgb(20 30 50 / .14);
 
   --f-head: "Archivo", "Arial Narrow", system-ui, sans-serif;
   --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --r1: 6px; --r2: 12px; --r-pill: 999px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  --r1: 6px; --r2: 12px; --r3: 18px; --r-pill: 999px;
+  --side-pad: 24px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: oklch(0.2 0.012 250); --surface: oklch(0.25 0.014 250); --fg: oklch(0.94 0.008 250);
-    --muted: oklch(0.74 0.015 250); --line: rgb(255 255 255 / .12); --pin: oklch(0.32 0.02 250);
-    --berg: oklch(0.68 0.17 27); --alpin: oklch(0.7 0.13 255);
-    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3); color-scheme: dark;
+    --bg: oklch(0.19 0.014 255); --surface: oklch(0.24 0.016 255); --sunken: oklch(0.22 0.015 255);
+    --fg: oklch(0.94 0.008 250); --muted: oklch(0.74 0.015 250); --line: rgb(255 255 255 / .1);
+    --head: oklch(0.15 0.014 255); --berg: oklch(0.68 0.17 27); --alpin: oklch(0.72 0.12 255);
+    --gut: oklch(0.75 0.14 150); --schlecht: oklch(0.74 0.14 45); --pin: oklch(0.3 0.02 255);
+    --shadow-1: 0 1px 2px rgb(0 0 0 / .4); --shadow-2: 0 2px 4px rgb(0 0 0 / .4), 0 12px 32px rgb(0 0 0 / .45);
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: oklch(0.2 0.012 250); --surface: oklch(0.25 0.014 250); --fg: oklch(0.94 0.008 250);
-  --muted: oklch(0.74 0.015 250); --line: rgb(255 255 255 / .12); --pin: oklch(0.32 0.02 250);
-  --berg: oklch(0.68 0.17 27); --alpin: oklch(0.7 0.13 255);
-  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3); color-scheme: dark;
+  --bg: oklch(0.19 0.014 255); --surface: oklch(0.24 0.016 255); --sunken: oklch(0.22 0.015 255);
+  --fg: oklch(0.94 0.008 250); --muted: oklch(0.74 0.015 250); --line: rgb(255 255 255 / .1);
+  --head: oklch(0.15 0.014 255); --berg: oklch(0.68 0.17 27); --alpin: oklch(0.72 0.12 255);
+  --gut: oklch(0.75 0.14 150); --schlecht: oklch(0.74 0.14 45); --pin: oklch(0.3 0.02 255);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / .4); --shadow-2: 0 2px 4px rgb(0 0 0 / .4), 0 12px 32px rgb(0 0 0 / .45);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -54,127 +80,221 @@ html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--alpin); outline-offset: 2px; }
+svg { flex: none; }
 
-.app { display: grid; grid-template-columns: minmax(320px, 400px) 1fr; height: 100dvh; }
-.side { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--line); background: var(--bg); }
-.side-head { padding: var(--s5) max(var(--s5), env(safe-area-inset-left, 0px)) var(--s4); display: grid; gap: var(--s4); border-bottom: 1px solid var(--line); }
+.app { display: grid; grid-template-columns: minmax(340px, 430px) 1fr; height: 100dvh; }
+.side { min-width: 0; overflow-y: auto; background: var(--bg); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.side > * { flex-shrink: 0; }
+.pad { padding-left: max(var(--side-pad), env(safe-area-inset-left, 0px)); padding-right: var(--side-pad); }
+
+/* ---------- Kopf ---------- */
+.head {
+  background-color: var(--head); color: var(--head-fg); padding-block: var(--s5) var(--s6); position: relative; overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='260' viewBox='0 0 520 260' fill='none' stroke='white' stroke-opacity='.08' stroke-width='1.2'%3E%3Cpath d='M420 40c40 10 70 40 60 75s-55 45-95 35-60-45-45-75 40-45 80-35z'/%3E%3Cpath d='M418 18c55 12 98 55 84 102s-78 66-132 52-85-62-64-104 57-62 112-50z'/%3E%3Cpath d='M414-6c70 15 125 70 108 130s-100 85-170 67-110-80-83-133 75-79 145-64z'/%3E%3Cpath d='M408-30c86 18 152 86 132 158s-122 104-206 82-134-98-101-162 89-96 175-78z'/%3E%3Cpath d='M400-54c100 21 178 100 154 186s-144 122-242 97-158-115-118-190 106-114 206-93z'/%3E%3Cpath d='M390-80c116 24 206 116 178 216s-166 142-280 113-182-134-137-221 123-132 239-108z'/%3E%3Cpath d='M60 250c30-40 80-50 120-30s50 50 40 70'/%3E%3Cpath d='M30 270c40-60 110-75 165-45s70 75 55 105'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right -40px top -10px;
+}
 .brand { display: flex; align-items: center; gap: var(--s3); }
-.brand svg { flex: none; }
-h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
-.sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.logo { width: 40px; height: 40px; }
+h1 { font: 800 26px/1 var(--f-head); font-stretch: 88%; margin: 0; letter-spacing: -.01em; }
+.head .sub { margin: var(--s1) 0 0; color: var(--head-muted); font-size: 13px; }
 
-.filters { display: grid; gap: var(--s3); }
-.row { display: grid; gap: var(--s2); }
-.label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.seg { display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r2); padding: 3px; gap: 3px; }
-.seg button { flex: 1; border: 0; background: none; padding: 8px 6px; border-radius: calc(var(--r2) - 3px); cursor: pointer; font-weight: 500; font-size: 14px; min-height: 40px; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ask { display: grid; gap: var(--s3); margin-top: var(--s5); }
+.ask-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: var(--s3); }
+.ask-label { font: 600 14px/1 var(--f-head); color: var(--head-muted); }
+.seg { display: flex; gap: 3px; padding: 3px; border-radius: var(--r2); background: var(--sunken); border: 1px solid var(--line); min-width: 0; }
+.seg button { flex: 1; border: 0; background: none; padding: 7px 4px; border-radius: calc(var(--r2) - 3px); cursor: pointer; font-weight: 500; font-size: 14px; min-height: 38px; white-space: nowrap; transition: background .15s, color .15s; }
+.seg button:hover { background: var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .15); }
+.head .seg { background: rgb(255 255 255 / .08); border-color: rgb(255 255 255 / .1); }
+.head .seg button { color: var(--head-fg); }
+.head .seg button:hover { background: rgb(255 255 255 / .1); }
+.head .seg button[aria-pressed="true"] { color: var(--accent-ink); }
+
+/* ---------- Tipp als Wegweiser ---------- */
+.tipp { margin-top: calc(-1 * var(--s5)); position: relative; z-index: 1; }
+.tipp-btn { width: 100%; border: 0; padding: 0; background: none; cursor: pointer; text-align: left; display: grid; gap: 0; filter: drop-shadow(0 6px 14px rgb(20 30 50 / .22)); }
+.tipp-btn:hover .sign { transform: translateX(3px); }
+.eyebrow { font: 600 11px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; }
+.sign {
+  background: var(--accent); color: var(--accent-ink);
+  clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 50%, calc(100% - 26px) 100%, 0 100%);
+  border-radius: var(--r1) 0 0 var(--r1);
+  padding: var(--s3) 44px var(--s3) var(--s4); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s1) var(--s3);
+  transition: transform .2s;
+}
+.sign .eyebrow { grid-column: 1 / -1; opacity: .7; }
+.sign-name { font: 800 22px/1.1 var(--f-head); font-stretch: 90%; min-width: 0; overflow-wrap: anywhere; }
+.sign-time { font: 700 18px/1 var(--f-head); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plate { background: var(--surface); color: var(--fg); margin-right: 26px; border-radius: 0 0 var(--r2) var(--r2); padding: var(--s2) var(--s4); display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); font-size: 13px; color: var(--muted); }
+.plate b { color: var(--fg); font-weight: 600; }
+.plate .w { display: inline-flex; align-items: center; gap: 4px; }
+.tipp-leer { margin-top: var(--s4); }
+
+/* ---------- Filter ---------- */
+.more { margin-top: var(--s5); border-block: 1px solid var(--line); }
+.more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s3); padding-block: var(--s3); min-height: 48px; }
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary .t { font: 700 15px/1 var(--f-head); }
+.more > summary .sum { color: var(--muted); font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.more > summary .chev { width: 18px; height: 18px; transition: transform .2s; color: var(--muted); }
+.more[open] > summary .chev { transform: rotate(180deg); }
+.filters { display: grid; gap: var(--s4); padding-bottom: var(--s5); }
+.row { display: grid; gap: var(--s2); min-width: 0; }
+.label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
 .range { display: flex; align-items: center; gap: var(--s3); }
-.range input { flex: 1; accent-color: var(--fg); }
+.range input { flex: 1; accent-color: var(--accent-ink); min-width: 0; }
 .range output { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-pill); padding: 6px 12px; font-size: 14px; cursor: pointer; min-height: 36px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-pill); padding: 6px 12px; font-size: 14px; cursor: pointer; min-height: 36px; transition: background .15s; }
 .chip svg { width: 16px; height: 16px; }
 .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-.toggles { display: flex; flex-wrap: wrap; gap: var(--s4); font-size: 14px; }
-.toggles label { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; min-height: 32px; }
-.toggles input { width: 18px; height: 18px; accent-color: var(--fg); }
+.toggles { display: grid; gap: var(--s1); font-size: 14px; }
+.toggles label { display: flex; align-items: center; gap: var(--s2); cursor: pointer; min-height: 36px; }
+.toggles input { width: 18px; height: 18px; accent-color: var(--accent-ink); margin: 0; }
+.toggles small { color: var(--muted); }
 
-.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s3) var(--s5); }
-.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.btn { display: inline-flex; align-items: center; gap: var(--s2); border: 0; border-radius: var(--r-pill); padding: 10px 16px; min-height: 44px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); }
+/* ---------- Liste ---------- */
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding-block: var(--s4) var(--s2); }
+.count { font: 700 15px/1.2 var(--f-head); font-variant-numeric: tabular-nums; }
+.count small { display: block; font: 400 12px/1.3 var(--f-body); color: var(--muted); }
+.btn { display: inline-flex; align-items: center; gap: var(--s2); border: 0; border-radius: var(--r-pill); padding: 10px 16px; min-height: 44px; font-weight: 600; cursor: pointer; background: var(--fg); color: var(--bg); white-space: nowrap; transition: transform .1s; }
 .btn svg { width: 18px; height: 18px; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: scale(.96); }
+.btn.gelb { background: var(--accent); color: var(--accent-ink); }
+.btn.klein { min-height: 36px; padding: 6px 12px; font-size: 13px; }
 
-.list { list-style: none; margin: 0; padding: 0 var(--s3) var(--s5); overflow-y: auto; flex: 1; min-height: 0; display: grid; align-content: start; gap: 2px; }
-.item { display: grid; grid-template-columns: 36px 1fr auto; gap: var(--s3); align-items: center; padding: var(--s3); border-radius: var(--r2); cursor: pointer; border: 0; background: none; text-align: left; width: 100%; }
-.item:hover, .item.active { background: var(--surface); box-shadow: var(--shadow); }
-.ico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--pin); color: var(--accent); }
-.ico svg { width: 18px; height: 18px; }
-.item-main { min-width: 0; }
-.item-name { font-weight: 600; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
-.item-meta { font-size: 13px; color: var(--muted); }
-.item-time { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; white-space: nowrap; }
-.item-time small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
-.tag { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); border: 1px dashed var(--muted); border-radius: var(--r1); padding: 0 5px; }
+.list { list-style: none; margin: 0; padding: 0 calc(var(--side-pad) - var(--s3)) var(--s7) max(calc(var(--side-pad) - var(--s3)), env(safe-area-inset-left, 0px)); display: grid; gap: 2px; }
+.item { display: grid; grid-template-columns: 40px 1fr auto; gap: var(--s3); align-items: center; padding: var(--s3); border-radius: var(--r2); cursor: pointer; border: 0; background: none; text-align: left; width: 100%; transition: background .15s, box-shadow .15s; }
+.item:hover { background: var(--surface); box-shadow: var(--shadow-1); }
+.item.active { background: var(--surface); box-shadow: var(--shadow-1), inset 3px 0 0 var(--accent); }
+.item.gemacht .item-name { color: var(--muted); }
+.ico { width: 40px; height: 40px; border-radius: var(--r2); display: grid; place-items: center; background: var(--pin); color: var(--accent); position: relative; }
+.ico svg { width: 20px; height: 20px; }
+.ico .badge { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); border: 2px solid var(--bg); }
+.ico .badge.done { background: var(--gut); color: white; }
+.ico .badge svg { width: 10px; height: 10px; }
+.item-main { min-width: 0; display: grid; gap: 1px; }
+.item-name { font-weight: 600; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; line-height: 1.25; }
+.item-meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s2); }
+.item-side { display: grid; justify-items: end; gap: 2px; }
+.item-time { font: 700 15px/1.1 var(--f-head); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item-time small { font: 400 11px var(--f-body); color: var(--muted); }
+.tag { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px dashed currentColor; border-radius: var(--r1); padding: 0 5px; line-height: 1.6; }
 
-/* Schwierigkeit wie die Wegmarkierung: T1 gelb, T2–T3 weiss-rot-weiss, T4+ weiss-blau-weiss */
+.wx { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.wx svg { width: 16px; height: 16px; }
+.wx.gut svg { color: var(--gut); }
+.wx.schlecht svg { color: var(--schlecht); }
+.wx.mittel svg { color: var(--muted); }
+
 .diff { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.diff i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; border: 1px solid var(--line); }
+.diff i { display: inline-block; width: 16px; height: 8px; border-radius: 2px; box-shadow: 0 0 0 1px var(--line); }
 .diff.t1 i { background: var(--accent); }
 .diff.t2 i { background: linear-gradient(white 0 30%, var(--berg) 30% 70%, white 70%); }
 .diff.t4 i { background: linear-gradient(white 0 30%, var(--alpin) 30% 70%, white 70%); }
 
-.empty, .notice { margin: var(--s4) var(--s5); padding: var(--s4); border-radius: var(--r2); border: 1px dashed var(--line); color: var(--muted); font-size: 14px; }
-.notice { border-style: solid; background: var(--surface); color: var(--fg); display: grid; gap: var(--s2); }
+.empty { margin: var(--s2) 0; padding: var(--s5) var(--s4); border-radius: var(--r2); border: 1px dashed var(--line); color: var(--muted); font-size: 14px; text-align: center; list-style: none; }
+.notice { margin-top: var(--s3); padding: var(--s3) var(--s4); border-radius: var(--r2); background: var(--surface); box-shadow: var(--shadow-1); display: grid; gap: var(--s2); font-size: 14px; }
+.notice.leise { background: none; box-shadow: none; border: 1px dashed var(--line); color: var(--muted); font-size: 13px; }
 .notice button { justify-self: start; }
 
+/* ---------- Karte ---------- */
 .mapwrap { position: relative; min-width: 0; min-height: 0; }
-#map { position: absolute; inset: 0; background: var(--surface); }
-.map-error { position: absolute; z-index: 500; left: var(--s4); right: var(--s4); top: var(--s4); }
+#map { position: absolute; inset: 0; background: var(--sunken); }
+.map-error { position: absolute; z-index: 500; left: var(--s4); right: var(--s4); top: var(--s4); max-width: 420px; }
 
-/* Leaflet an das Design anpassen */
 .leaflet-container { font: inherit; }
-.leaflet-popup-content-wrapper { border-radius: var(--r2); background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+.leaflet-popup-content-wrapper { border-radius: var(--r3); background: var(--surface); color: var(--fg); box-shadow: var(--shadow-2); padding: 0; overflow: hidden; }
 .leaflet-popup-tip { background: var(--surface); }
-.leaflet-popup-content { margin: var(--s4); min-width: 230px; }
-.leaflet-container a.leaflet-popup-close-button { color: var(--muted); width: 32px; height: 32px; font-size: 22px; }
+.leaflet-popup-content { margin: 0; width: 290px !important; max-width: calc(100vw - 64px); }
+.leaflet-container a.leaflet-popup-close-button { color: var(--accent-ink); width: 36px; height: 36px; font: 400 24px/36px var(--f-body); right: 2px; top: 4px; z-index: 2; }
 .leaflet-control-layers, .leaflet-bar a { background: var(--surface); color: var(--fg); }
-.leaflet-control-layers { border-radius: var(--r2) !important; border: 1px solid var(--line) !important; box-shadow: var(--shadow) !important; }
-.leaflet-control-layers-expanded { padding: var(--s3); font-size: 14px; }
-.leaflet-control-layers label { min-height: 28px; display: flex; align-items: center; }
-.leaflet-control-attribution { font-size: 11px; }
-.pop h3 { font: 800 18px/1.15 var(--f-head); margin: 0 28px 2px 0; }
-.pop .ort { color: var(--muted); font-size: 13px; margin: 0 0 var(--s2); }
-.pop p { margin: var(--s2) 0; }
-.pop .facts { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); font-size: 13px; font-variant-numeric: tabular-nums; margin: var(--s2) 0; }
-.pop .facts b { font-weight: 600; }
-.pop .links { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
-.pop .links a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; font-size: 13px; padding: 8px 12px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--fg); min-height: 36px; }
-.pop .links a.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.pop .links svg { width: 15px; height: 15px; }
-.pop .hint { font-size: 12px; color: var(--muted); margin-top: var(--s2); }
+.leaflet-bar { border: 0 !important; box-shadow: var(--shadow-1) !important; border-radius: var(--r2) !important; overflow: hidden; }
+.leaflet-bar a { width: 36px !important; height: 36px !important; line-height: 36px !important; border-color: var(--line) !important; }
+.leaflet-control-layers { border-radius: var(--r2) !important; border: 0 !important; box-shadow: var(--shadow-1) !important; }
+.leaflet-control-layers-expanded { padding: var(--s3) var(--s4); font-size: 14px; }
+.leaflet-control-layers label { min-height: 30px; display: flex; align-items: center; }
+.leaflet-control-layers-separator { border-top-color: var(--line) !important; }
+.leaflet-control-attribution { font-size: 11px; background: rgb(255 255 255 / .75) !important; }
 
-.pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--pin); border: 2px solid white; box-shadow: 0 2px 6px rgb(0 0 0 / .35); display: grid; place-items: center; transition: transform .15s; }
-.pin svg { width: 16px; height: 16px; transform: rotate(45deg); color: var(--accent); }
-.pin.active { background: var(--accent); }
+.pop .sign { border-radius: 0; clip-path: none; padding: var(--s4) 44px var(--s3) var(--s4); }
+.pop .sign-name { font-size: 20px; }
+.pop-body { padding: var(--s3) var(--s4) var(--s4); display: grid; gap: var(--s3); }
+.pop-ort { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.pop-body p { margin: 0; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.fact { background: var(--sunken); border-radius: var(--r1); padding: 6px 8px; }
+.fact span { display: block; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fact b { font: 700 15px/1.2 var(--f-head); font-variant-numeric: tabular-nums; }
+.pop-wx { display: flex; align-items: center; gap: var(--s2); font-size: 13px; }
+.pop-wx svg { width: 22px; height: 22px; }
+.pop-wx.gut svg { color: var(--gut); } .pop-wx.schlecht svg { color: var(--schlecht); } .pop-wx.mittel svg { color: var(--muted); }
+.pop-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.pop-actions a, .pop-actions button { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; font-size: 13px; padding: 8px 12px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--fg); background: var(--surface); min-height: 38px; cursor: pointer; }
+.pop-actions .primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.pop-actions [aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.pop-actions svg { width: 15px; height: 15px; }
+.hint { font-size: 12px; color: var(--muted); }
+
+.pin { width: 36px; height: 36px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--pin); border: 2px solid white; box-shadow: 0 3px 8px rgb(0 0 0 / .35); display: grid; place-items: center; transition: transform .2s; }
+.pin svg { width: 17px; height: 17px; transform: rotate(45deg); color: var(--accent); }
+.pin.active { background: var(--accent); transform: rotate(-45deg) scale(1.15); }
 .pin.active svg { color: var(--accent-ink); }
-.home { width: 18px; height: 18px; border-radius: 50%; background: var(--alpin); border: 3px solid white; box-shadow: 0 1px 4px rgb(0 0 0 / .4); }
+.pin.gemacht { opacity: .55; }
+.home { width: 20px; height: 20px; border-radius: 50%; background: var(--alpin); border: 3px solid white; box-shadow: 0 0 0 6px rgb(60 100 200 / .2), 0 1px 4px rgb(0 0 0 / .4); }
 
 @media (max-width: 760px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: 48dvh 1fr; height: auto; min-height: 100dvh; }
-  .mapwrap { grid-row: 1; position: sticky; top: 0; z-index: 1; height: 48dvh; }
-  .side { grid-row: 2; border-right: 0; }
-  .side-head { padding: var(--s4) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s4) max(var(--s4), env(safe-area-inset-left, 0px)); }
-  .list-head { padding: var(--s3) var(--s4); }
-  .list { overflow: visible; padding-inline: var(--s2); }
+  :root { --side-pad: 16px; }
+  .app { height: auto; min-height: 100dvh; display: flex; flex-direction: column; }
+  .mapwrap { order: -1; position: sticky; top: 0; z-index: 1; height: 44dvh; flex: none; }
+  .side { overflow: visible; border-right: 0; position: relative; z-index: 2; border-radius: var(--r3) var(--r3) 0 0; margin-top: calc(-1 * var(--r3)); }
+  .head { border-radius: var(--r3) var(--r3) 0 0; padding-top: var(--s5); }
+  .pad { padding-right: max(var(--side-pad), env(safe-area-inset-right, 0px)); }
+  .ask-row { grid-template-columns: 58px 1fr; }
+  .ask-label { white-space: nowrap; font-size: 13px; }
+  .seg button { font-size: 13px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="side">
-    <div class="side-head">
+    <header class="head pad">
       <div class="brand">
-        <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><rect x="3" y="3" width="30" height="30" rx="4" transform="rotate(45 18 18)" fill="var(--accent)"/><path d="M10 23l5-7 3 4 2-3 6 6z" fill="var(--accent-ink)"/></svg>
+        <svg class="logo" viewBox="0 0 36 36" aria-hidden="true"><rect x="4" y="4" width="28" height="28" rx="4" transform="rotate(45 18 18)" fill="var(--accent)"/><path d="M10 23l5-7 3 4 2-3 6 6z" fill="var(--accent-ink)"/></svg>
         <div>
           <h1>Ausflugskarte</h1>
-          <p class="sub">Was machen wir, wenn wir Zeit haben?</p>
+          <p class="sub" id="sub">Ausflüge in der Schweiz</p>
         </div>
       </div>
-
-      <div class="filters">
-        <div class="row">
-          <span class="label" id="l-zeit">Ich habe</span>
+      <div class="ask">
+        <div class="ask-row">
+          <span class="ask-label" id="l-zeit">Ich habe</span>
           <div class="seg" role="group" aria-labelledby="l-zeit" id="f-zeit">
             <button type="button" data-v="halb" aria-pressed="false">Halber Tag</button>
             <button type="button" data-v="ganz" aria-pressed="true">Ganzer Tag</button>
             <button type="button" data-v="wochenende" aria-pressed="false">Wochenende</button>
           </div>
         </div>
+        <div class="ask-row">
+          <span class="ask-label" id="l-tag">am</span>
+          <div class="seg" role="group" aria-labelledby="l-tag" id="f-tag"></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="tipp pad" id="tipp"></div>
+
+    <details class="more pad" id="more">
+      <summary>
+        <span class="t">Filter</span>
+        <span class="sum" id="sum"></span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="filters">
         <div class="two">
           <div class="row">
             <span class="label" id="l-start">Start</span>
@@ -202,21 +322,29 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
           <span class="label" id="l-kat">Was</span>
           <div class="chips" role="group" aria-labelledby="l-kat" id="f-kat"></div>
         </div>
+        <div class="row">
+          <span class="label" id="l-zeigen">Zeigen</span>
+          <div class="seg" role="group" aria-labelledby="l-zeigen" id="f-zeigen">
+            <button type="button" data-v="alle" aria-pressed="true">Alle</button>
+            <button type="button" data-v="merk" aria-pressed="false">Merkliste</button>
+            <button type="button" data-v="neu" aria-pressed="false">Noch nicht gemacht</button>
+          </div>
+        </div>
         <div class="toggles">
-          <label><input type="checkbox" id="f-saison" checked> Passt zur Jahreszeit</label>
-          <label><input type="checkbox" id="f-regen"> Geht bei Regen</label>
+          <label><input type="checkbox" id="f-wetter" checked> <span>Wetter passt <small>(trocken, oder geht auch bei Regen)</small></span></label>
+          <label><input type="checkbox" id="f-saison" checked> <span id="t-saison">Passt zur Jahreszeit</span></label>
         </div>
       </div>
-    </div>
+    </details>
 
-    <div class="list-head">
+    <div class="list-head pad">
       <span class="count" id="count" aria-live="polite">Lade …</span>
       <button type="button" class="btn" id="surprise">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
         Überrasch mich
       </button>
     </div>
-    <div id="notice"></div>
+    <div class="pad" id="notice"></div>
     <ul class="list" id="list"></ul>
   </aside>
 
@@ -228,6 +356,7 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="aktivitaeten.js"></script>
+<script src="anreise.js"></script>
 <script>
 (() => {
   "use strict";
@@ -235,9 +364,11 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
   // ---------- Grunddaten ----------
   const STARTS = {
     geroldswil: { name: "Geroldswil", lat: 47.4217, lng: 8.4106, extra: 0 },
-    portein:    { name: "Portein",    lat: 46.7045, lng: 9.4030, extra: 15 } // Bergstrasse bis ins Tal
+    portein:    { name: "Portein",    lat: 46.7119, lng: 9.4072, extra: 15 }
   };
   const ZEIT_MAX = { halb: 5.5, ganz: 11, wochenende: Infinity }; // Stunden inkl. Hin- und Rückweg
+  const ZEIT_NAME = { halb: "halben Tag", ganz: "ganzen Tag", wochenende: "Wochenende" };
+  const I = (p, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${p}</svg>`;
   const ICONS = {
     wandern:    '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>',
     see:        '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
@@ -246,56 +377,128 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
     kultur:     '<path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m12 2 8 5H4z"/>',
     indoor:     '<path d="M3 10.2 12 3l9 7.2V21H3z"/><path d="M9 21v-6h6v6"/>'
   };
+  const UI = {
+    play:  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>',
+    route: I('<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>'),
+    star:  I('<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>'),
+    starF: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>',
+    check: I('<path d="M20 6 9 17l-5-5"/>', ' stroke-width="3"'),
+    checkN: I('<path d="M20 6 9 17l-5-5"/>')
+  };
+  const WX = {
+    sonne:  '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>',
+    teils:  '<path d="M12 2v2M4.9 4.9l1.4 1.4M20 12h2M19.1 4.9l-1.4 1.4"/><path d="M15.9 13A4 4 0 0 0 8.1 11"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6z"/>',
+    wolke:  '<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9z"/>',
+    nebel:  '<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M16 17H7M17 21H9"/>',
+    regen:  '<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M16 14v6M8 14v6M12 16v6"/>',
+    schnee: '<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M8 15h.01M8 19h.01M12 17h.01M12 21h.01M16 15h.01M16 19h.01"/>',
+    gewitter:'<path d="M6 16.3A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 .5 9"/><path d="m13 12-3 5h4l-3 5"/>'
+  };
   const KAT_NAME = { wandern: "Wandern", see: "See & Baden", wasserfall: "Wasserfall", aussicht: "Aussicht", kultur: "Stadt & Kultur", indoor: "Drinnen" };
-  const SAISON_JETZT = ["winter", "winter", "fruehling", "fruehling", "fruehling", "sommer", "sommer", "sommer", "herbst", "herbst", "herbst", "winter"][new Date().getMonth()];
+  const SAISON = m => ["winter", "winter", "fruehling", "fruehling", "fruehling", "sommer", "sommer", "sommer", "herbst", "herbst", "herbst", "winter"][m];
   const SAISON_NAME = { fruehling: "Frühling", sommer: "Sommer", herbst: "Herbst", winter: "Winter" };
 
-  const svg = (k, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${ICONS[k] || ICONS.wandern}</svg>`;
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch { return null; } };
-  const fmtMin = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? " " + String(m % 60).padStart(2, "0") : ""}`;
+  const fmtMin = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? " " + (m % 60) + " min" : ""}`;
+  const fmtKurz = m => m < 60 ? `${m}′` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
   const fmtStd = h => (Math.round(h * 2) / 2).toString().replace(".", ",") + " h";
   const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  const mq = q => matchMedia(q).matches;
+  const isoTag = d => d.toLocaleDateString("sv-SE");
+
+  // ---------- Tage ----------
+  const heute = new Date(); heute.setHours(12, 0, 0, 0);
+  const TAGE = [...Array(7)].map((_, i) => { const d = new Date(heute); d.setDate(d.getDate() + i); return d; });
+  const tagOptionen = [{ i: 0, name: "Heute" }, { i: 1, name: "Morgen" }];
+  for (const wd of [6, 0]) { const i = TAGE.findIndex(d => d.getDay() === wd); if (i > 1) tagOptionen.push({ i, name: TAGE[i].toLocaleDateString("de-CH", { weekday: "short" }).replace(".", "") + " " + TAGE[i].getDate() + "." }); }
+  const tagName = i => i === 0 ? "heute" : i === 1 ? "morgen" : TAGE[i].toLocaleDateString("de-CH", { weekday: "long" });
 
   // ---------- Anreise ----------
-  // Genaue Minuten aus den Daten, sonst grobe Schätzung über die Luftlinie.
   function km(a, b) {
     const R = 6371, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(h));
   }
+  const ANREISE = window.ANREISE || {};
   function anreise(a, startKey, mode) {
-    const exakt = a.anreise?.[startKey]?.[mode];
-    if (Number.isFinite(exakt)) return { min: exakt, geschaetzt: false };
+    const exakt = ANREISE[a.name]?.[startKey]?.[mode];
+    if (Number.isFinite(exakt)) return { min: exakt, geschaetzt: false, halt: mode === "oev" ? ANREISE[a.name].halt : null };
     const s = STARTS[startKey], d = km(s, a) * 1.35;
     const auto = d / (d < 40 ? 50 : 72) * 60 + 10 + s.extra;
     const min = mode === "auto" ? auto : auto * 1.5 + 15;
-    return { min: Math.max(10, Math.round(min / 5) * 5), geschaetzt: true };
+    return { min: Math.max(10, Math.round(min / 5) * 5), geschaetzt: true, halt: null };
   }
 
-  // ---------- Daten prüfen ----------
+  // ---------- Daten ----------
   const roh = Array.isArray(window.AKTIVITAETEN) ? window.AKTIVITAETEN : null;
   const daten = (roh || []).filter(a => Number.isFinite(a?.lat) && Number.isFinite(a?.lng) && a.name)
     .map((a, i) => ({ ...a, id: i, kategorie: ICONS[a.kategorie] ? a.kategorie : "wandern", stunden: Number(a.stunden) || 3, saison: Array.isArray(a.saison) ? a.saison : [] }));
 
   // ---------- Zustand ----------
-  const gespeichert = store.get("ausflug-filter") || {};
-  const state = Object.assign({ zeit: "ganz", start: "geroldswil", mode: "auto", max: 180, kat: [], saison: true, regen: false }, gespeichert);
+  const state = Object.assign({ zeit: "ganz", tag: 1, start: "geroldswil", mode: "auto", max: 180, kat: [], zeigen: "alle", wetter: true, saison: true }, store.get("ausflug-filter2") || {});
+  if (!tagOptionen.some(t => t.i === state.tag)) state.tag = 1;
+  let markiert = store.get("ausflug-markiert") || {};
   let aktiv = null;
+  const wetter = { status: "lädt", tage: null, proOrt: new Map() };
+
+  const $ = id => document.getElementById(id);
+
+  // ---------- Wetter (Open-Meteo, ohne Schlüssel) ----------
+  function wetterKlasse(code, prob) {
+    if (code >= 95 || (code >= 61 && code !== 80 && prob >= 50) || prob >= 70) return "schlecht";
+    if (code <= 2 && prob < 35) return "gut";
+    return "mittel";
+  }
+  function wetterIcon(code) {
+    if (code <= 1) return WX.sonne; if (code === 2) return WX.teils; if (code === 3) return WX.wolke;
+    if (code === 45 || code === 48) return WX.nebel; if ((code >= 71 && code <= 77) || code === 85 || code === 86) return WX.schnee;
+    if (code >= 95) return WX.gewitter; return WX.regen;
+  }
+  const WX_TEXT = c => c <= 1 ? "sonnig" : c === 2 ? "teils bewölkt" : c === 3 ? "bewölkt" : (c === 45 || c === 48) ? "Nebel" : (c >= 71 && c <= 77) || c === 85 || c === 86 ? "Schnee" : c >= 95 ? "Gewitter" : (c >= 51 && c <= 57) ? "Niesel" : "Regen";
+  function wetterFuer(a) {
+    const w = wetter.proOrt.get(a.id); if (!w) return null;
+    const i = w.time.indexOf(isoTag(TAGE[state.tag])); if (i < 0) return null;
+    const code = w.weather_code[i], prob = w.precipitation_probability_max[i] ?? 0, t = w.temperature_2m_max[i];
+    return { code, prob, t: Math.round(t), klasse: wetterKlasse(code, prob) };
+  }
+  const wxHtml = (w, cls = "wx") => w ? `<span class="${cls} ${w.klasse}" title="${esc(WX_TEXT(w.code))}, Regen ${w.prob} %">${I(wetterIcon(w.code))}${w.t}°</span>` : "";
+
+  async function ladeWetter(neu = false) {
+    if (!daten.length) return;
+    wetter.status = "lädt"; render();
+    const lat = daten.map(a => a.lat.toFixed(3)).join(","), lng = daten.map(a => a.lng.toFixed(3)).join(",");
+    const key = "ausflug-wetter", cache = store.get(key);
+    let liste = null;
+    if (!neu && cache && cache.sig === lat + lng && Date.now() - cache.zeit < 60 * 60 * 1000) liste = cache.daten;
+    if (!liste) {
+      try {
+        const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,precipitation_probability_max&timezone=Europe%2FZurich&forecast_days=7`, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const j = await r.json();
+        liste = (Array.isArray(j) ? j : [j]).map(x => x.daily);
+        store.set(key, { sig: lat + lng, zeit: Date.now(), daten: liste });
+      } catch (e) {
+        wetter.status = "fehler"; wetter.fehler = e.name === "AbortError" ? "Der Wetterdienst antwortet nicht." : e instanceof TypeError ? "Keine Verbindung zum Wetterdienst (Open-Meteo)." : `Open-Meteo meldet ${e.message}.`; render(); return;
+      }
+    }
+    daten.forEach((a, i) => liste[i] && wetter.proOrt.set(a.id, liste[i]));
+    wetter.status = "ok"; render();
+  }
 
   // ---------- Karte ----------
-  const $ = id => document.getElementById(id);
-  let map = null, markers = new Map(), homeMarker = null;
+  let map = null; const markers = new Map(); let homeMarker = null;
   const mapErr = $("map-error");
-
   function zeigeKartenFehler(text) {
     mapErr.hidden = false;
-    mapErr.innerHTML = `<div class="notice" role="alert"><strong>Die Karte lässt sich gerade nicht laden.</strong><span>${esc(text)}</span><button type="button" class="btn" id="reload">Seite neu laden</button></div>`;
+    mapErr.innerHTML = `<div class="notice" role="alert"><strong>Die Karte lässt sich gerade nicht laden.</strong><span>${esc(text)}</span><button type="button" class="btn klein gelb" id="reload">Seite neu laden</button></div>`;
     $("reload").onclick = () => location.reload();
   }
 
   if (!window.L) {
-    zeigeKartenFehler("Prüfe deine Internetverbindung. Die Liste links funktioniert trotzdem, inklusive Links zu Reel und Route.");
+    zeigeKartenFehler("Prüfe deine Internetverbindung und lade die Seite neu. Die Liste links zeigt trotzdem, was passt.");
   } else {
     const geo = (layer, ext) => `https://wmts.geo.admin.ch/1.0.0/${layer}/default/current/3857/{z}/{x}/{y}.${ext}`;
     const attr = '&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener">swisstopo</a>';
@@ -306,55 +509,68 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
     const wanderwege = L.tileLayer(geo("ch.swisstopo.swisstlm3d-wanderwege", "png"), { minZoom: 10, maxZoom: 19, maxNativeZoom: 18, opacity: .9, attribution: attr }); // erst ab Regionen-Zoom, sonst nur Farbfläche
 
     map = L.map("map", { zoomControl: true, minZoom: 7, maxBounds: [[45.2, 5.3], [48.3, 11.1]], maxBoundsViscosity: .8 });
-    map.fitBounds([[45.82, 5.96], [47.81, 10.49]]);
+    map.fitBounds([[45.82, 5.96], [47.81, 10.49]], { padding: [10, 10] });
     const basis = { "Landeskarte": landeskarte, "Landeskarte grau": grau, "Luftbild": luftbild, "OpenStreetMap": osm };
-    const basisName = store.get("ausflug-basis");
-    (basis[basisName] || landeskarte).addTo(map);
+    (basis[store.get("ausflug-basis")] || landeskarte).addTo(map);
     if (store.get("ausflug-wanderwege") !== false) wanderwege.addTo(map);
-    L.control.layers(basis, { "Wanderwege": wanderwege }, { collapsed: matchMedia("(max-width: 760px)").matches }).addTo(map);
+    L.control.layers(basis, { "Wanderwege (ab Zoom)": wanderwege }, { collapsed: true }).addTo(map);
     map.on("baselayerchange", e => store.set("ausflug-basis", e.name));
     map.on("overlayadd overlayremove", e => { if (e.layer === wanderwege) store.set("ausflug-wanderwege", e.type === "overlayadd"); });
 
     let kachelFehler = 0;
-    [landeskarte, grau, luftbild, osm].forEach(l => l.on("tileerror", () => {
-      if (++kachelFehler === 8) zeigeKartenFehler("Die Kartenbilder von swisstopo kommen nicht an. Prüfe die Verbindung oder wähle oben rechts eine andere Karte.");
-    }));
-    [landeskarte, grau, luftbild, osm].forEach(l => l.on("tileload", () => { kachelFehler = 0; mapErr.hidden = true; }));
+    [landeskarte, grau, luftbild, osm].forEach(l => {
+      l.on("tileerror", () => { if (++kachelFehler === 8) zeigeKartenFehler("Die Kartenbilder kommen nicht an. Prüfe die Verbindung oder wähle oben rechts eine andere Karte."); });
+      l.on("tileload", () => { kachelFehler = 0; mapErr.hidden = true; });
+    });
 
     for (const a of daten) {
-      const icon = L.divIcon({ className: "", html: `<div class="pin">${svg(a.kategorie)}</div>`, iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -32] });
-      const m = L.marker([a.lat, a.lng], { icon, title: a.name, keyboard: true }).bindPopup(() => popupHtml(a), { maxWidth: 300, autoPanPadding: [24, 24] });
+      const icon = L.divIcon({ className: "", html: `<div class="pin">${I(ICONS[a.kategorie])}</div>`, iconSize: [36, 36], iconAnchor: [18, 36], popupAnchor: [0, -34] });
+      const m = L.marker([a.lat, a.lng], { icon, title: a.name, keyboard: true }).bindPopup(() => popupHtml(a), { maxWidth: 320, minWidth: 240, autoPanPaddingTopLeft: [16, 60], autoPanPaddingBottomRight: [16, 16] });
       m.on("popupopen", () => setAktiv(a.id, false));
       m.on("popupclose", () => { if (aktiv === a.id) setAktiv(null, false); });
       markers.set(a.id, m);
     }
+    map.on("popupopen", e => {
+      const el = e.popup.getElement();
+      if (!el || el.dataset.bound) return; // pro Popup nur einmal anhängen
+      el.dataset.bound = "1";
+      el.addEventListener("click", ev => {
+        const b = ev.target.closest("[data-mark]"); if (!b) return;
+        L.DomEvent.stop(ev); // sonst hält Leaflet den ersetzten Knopf für einen Klick auf die Karte und schliesst das Popup
+        requestAnimationFrame(() => toggleMark(+b.dataset.id, b.dataset.mark));
+      });
+    });
+  }
+
+  function signHtml(a, r, eyebrow) {
+    return `<div class="sign">${eyebrow ? `<span class="eyebrow">${esc(eyebrow)}</span>` : ""}<span class="sign-name">${esc(a.name)}</span><span class="sign-time">${r.geschaetzt ? "ca. " : ""}${fmtMin(r.min)}</span></div>`;
   }
 
   function popupHtml(a) {
-    const r = anreise(a, state.start, state.mode), s = STARTS[state.start];
-    const total = a.stunden + 2 * r.min / 60;
-    const reel = safeUrl(a.link);
-    const travel = state.mode === "auto" ? "driving" : "transit";
-    const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(s.name + ", Schweiz")}&destination=${a.lat},${a.lng}&travelmode=${travel}`;
+    const r = anreise(a, state.start, state.mode), s = STARTS[state.start], w = wetterFuer(a);
+    const total = a.stunden + 2 * r.min / 60, reel = safeUrl(a.link), mk = markiert[a.name];
+    const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(s.name + ", Schweiz")}&destination=${a.parkplatz ? a.parkplatz.join(",") : a.lat + "," + a.lng}&travelmode=${state.mode === "auto" ? "driving" : "transit"}`;
     return `<div class="pop">
-      <h3>${esc(a.name)}</h3>
-      <p class="ort">${esc(a.ort)} · ${esc(KAT_NAME[a.kategorie])}${a.beispiel ? ' · <span class="tag">Beispiel</span>' : ""}</p>
-      ${a.beschreibung ? `<p>${esc(a.beschreibung)}</p>` : ""}
-      <div class="facts">
-        <span>Vor Ort <b>${fmtStd(a.stunden)}</b></span>
-        <span>Anreise <b>${r.geschaetzt ? "ca. " : ""}${fmtMin(r.min)}</b></span>
-        <span>Total <b>${fmtStd(total)}</b></span>
-        ${diffHtml(a.schwierigkeit)}
+      ${signHtml(a, r, `${state.mode === "auto" ? "Mit dem Auto" : "Mit dem ÖV"} ab ${s.name}`)}
+      <div class="pop-body">
+        <div class="pop-ort">${esc(a.ort)} · ${esc(KAT_NAME[a.kategorie])} ${diffHtml(a.schwierigkeit)} ${a.beispiel ? '<span class="tag">Beispiel</span>' : ""}</div>
+        ${a.beschreibung ? `<p>${esc(a.beschreibung)}</p>` : ""}
+        <div class="facts">
+          <div class="fact"><span>Vor Ort</span><b>${fmtStd(a.stunden)}</b></div>
+          <div class="fact"><span>Anreise</span><b>${fmtKurz(r.min)}</b></div>
+          <div class="fact"><span>Total</span><b>${fmtStd(total)}</b></div>
+        </div>
+        ${w ? `<div class="pop-wx ${w.klasse}">${I(wetterIcon(w.code))}<span><b>${tagName(state.tag)[0].toUpperCase() + tagName(state.tag).slice(1)}:</b> ${esc(WX_TEXT(w.code))}, bis ${w.t}°, Regenrisiko ${w.prob} %${a.regen && w.klasse === "schlecht" ? " · geht auch bei Regen" : ""}</span></div>` : ""}
+        <div class="pop-actions">
+          ${reel ? `<a class="primary" href="${esc(reel)}" target="_blank" rel="noopener">${UI.play} Reel</a>` : ""}
+          <a href="${esc(route)}" target="_blank" rel="noopener">${UI.route} Route</a>
+          <button type="button" data-mark="will" data-id="${a.id}" aria-pressed="${mk === "will"}">${mk === "will" ? UI.starF : UI.star} Merken</button>
+          <button type="button" data-mark="gemacht" data-id="${a.id}" aria-pressed="${mk === "gemacht"}">${UI.checkN} Gemacht</button>
+        </div>
+        ${r.geschaetzt ? `<span class="hint">Anreise grob geschätzt. Genaue Zeit über «Route».</span>` : r.halt ? `<span class="hint">ÖV bis ${esc(r.halt)}, Samstagmorgen, inkl. Fussweg.</span>` : ""}
       </div>
-      <div class="links">
-        ${reel ? `<a class="primary" href="${esc(reel)}" target="_blank" rel="noopener">${playSvg} Reel ansehen</a>` : ""}
-        <a href="${esc(route)}" target="_blank" rel="noopener">${routeSvg} Route ab ${esc(s.name)}</a>
-      </div>
-      ${r.geschaetzt ? `<p class="hint">Anreise grob geschätzt über die Luftlinie. Genaue Zeit über «Route».</p>` : ""}
     </div>`;
   }
-  const playSvg = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>';
-  const routeSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>';
   function diffHtml(t) {
     const n = /^T([1-6])$/.exec(t || "");
     if (!n) return "";
@@ -365,67 +581,92 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
 
   // ---------- Filter ----------
   function gefiltert() {
-    return daten.map(a => ({ a, r: anreise(a, state.start, state.mode) }))
-      .filter(({ a, r }) =>
+    const saison = SAISON(TAGE[state.tag].getMonth());
+    return daten.map(a => ({ a, r: anreise(a, state.start, state.mode), w: wetterFuer(a) }))
+      .filter(({ a, r, w }) =>
         r.min <= state.max &&
         a.stunden + 2 * r.min / 60 <= ZEIT_MAX[state.zeit] &&
         (!state.kat.length || state.kat.includes(a.kategorie)) &&
-        (!state.saison || !a.saison.length || a.saison.includes(SAISON_JETZT)) &&
-        (!state.regen || a.regen))
+        (!state.saison || !a.saison.length || a.saison.includes(saison)) &&
+        (!state.wetter || !w || a.regen || w.klasse !== "schlecht") &&
+        (state.zeigen === "alle" || (state.zeigen === "merk" ? markiert[a.name] === "will" : markiert[a.name] !== "gemacht")))
       .sort((x, y) => x.r.min - y.r.min);
+  }
+  function tippAus(liste) {
+    const score = ({ a, r, w }) => (w ? { gut: 3, mittel: 1, schlecht: -2 }[w.klasse] : 0) + (markiert[a.name] === "will" ? 2 : 0) + (markiert[a.name] === "gemacht" ? -3 : 0) - r.min / 90;
+    return liste.slice().sort((x, y) => score(y) - score(x))[0];
   }
 
   function render() {
-    store.set("ausflug-filter", state);
-    for (const [grp, key] of [["f-zeit", "zeit"], ["f-start", "start"], ["f-mode", "mode"]])
+    store.set("ausflug-filter2", state);
+    const saison = SAISON(TAGE[state.tag].getMonth());
+    $("f-tag").innerHTML = tagOptionen.map(t => `<button type="button" data-v="${t.i}" aria-pressed="${t.i === state.tag}">${t.name}</button>`).join("");
+    for (const [grp, key] of [["f-zeit", "zeit"], ["f-start", "start"], ["f-mode", "mode"], ["f-zeigen", "zeigen"]])
       $(grp).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
     $("f-kat").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(state.kat.includes(b.dataset.v))));
     $("f-max").value = state.max; $("o-max").textContent = fmtMin(+state.max);
-    $("f-saison").checked = state.saison; $("f-regen").checked = state.regen;
-    $("f-saison").parentElement.lastChild.textContent = ` Passt zum ${SAISON_NAME[SAISON_JETZT]}`;
+    $("f-saison").checked = state.saison; $("f-wetter").checked = state.wetter;
+    $("f-wetter").disabled = wetter.status !== "ok";
+    $("t-saison").textContent = `Passt zum ${SAISON_NAME[saison]}`;
+    $("sub").textContent = `Ab ${STARTS[state.start].name} · ${state.mode === "auto" ? "Auto" : "ÖV"}`;
+    const teile = [`${state.mode === "auto" ? "Auto" : "ÖV"} ab ${STARTS[state.start].name}`, `bis ${fmtMin(+state.max)}`];
+    if (state.kat.length) teile.push(state.kat.map(k => KAT_NAME[k]).join(", "));
+    if (state.zeigen !== "alle") teile.push(state.zeigen === "merk" ? "Merkliste" : "noch nicht gemacht");
+    $("sum").textContent = teile.join(" · ");
 
     const liste = gefiltert();
-    $("count").textContent = `${liste.length} von ${daten.length} Ausflügen`;
+    $("count").innerHTML = `${liste.length} ${liste.length === 1 ? "Ausflug passt" : "Ausflüge passen"}<small>für einen ${ZEIT_NAME[state.zeit]} ${tagName(state.tag)}${daten.length ? `, von ${daten.length}` : ""}</small>`;
     $("surprise").disabled = !liste.length;
 
+    // Tipp
+    const t = tippAus(liste);
+    $("tipp").innerHTML = t ? `<button type="button" class="tipp-btn" data-id="${t.a.id}" aria-label="Tipp öffnen: ${esc(t.a.name)}">
+        ${signHtml(t.a, t.r, `Tipp für ${tagName(state.tag)}`)}
+        <span class="plate">${t.w ? `<span class="w">${wxHtml(t.w)} ${esc(WX_TEXT(t.w.code))}</span>` : ""}<span>${esc(t.a.ort)}</span><span>Total <b>${fmtStd(t.a.stunden + 2 * t.r.min / 60)}</b></span></span>
+      </button>` : "";
+
+    // Liste
     const ul = $("list");
-    ul.innerHTML = "";
-    if (!daten.length) {
-      ul.innerHTML = `<li class="empty">Noch keine Ausflüge eingetragen. Neue Orte kommen in die Datei <code>aktivitaeten.js</code>.</li>`;
-    } else if (!liste.length) {
-      ul.innerHTML = `<li class="empty">Nichts passt zu diesen Filtern. Erhöhe die maximale Anreise oder nimm ein paar Filter weg.</li>`;
-    }
-    for (const { a, r } of liste) {
-      const li = document.createElement("li");
-      li.innerHTML = `<button type="button" class="item${aktiv === a.id ? " active" : ""}" data-id="${a.id}">
-        <span class="ico">${svg(a.kategorie)}</span>
+    if (!daten.length) ul.innerHTML = `<li class="empty">Noch keine Ausflüge eingetragen. Neue Orte kommen in die Datei aktivitaeten.js.</li>`;
+    else if (!liste.length) ul.innerHTML = `<li class="empty">Nichts passt zu diesen Filtern.<br>Erhöhe die maximale Anreise oder nimm einen Filter weg.</li>`;
+    else ul.innerHTML = liste.map(({ a, r, w }) => {
+      const mk = markiert[a.name];
+      return `<li><button type="button" class="item${aktiv === a.id ? " active" : ""}${mk === "gemacht" ? " gemacht" : ""}" data-id="${a.id}">
+        <span class="ico">${I(ICONS[a.kategorie])}${mk === "will" ? `<span class="badge" title="Auf der Merkliste">${UI.starF}</span>` : mk === "gemacht" ? `<span class="badge done" title="Schon gemacht">${UI.check}</span>` : ""}</span>
         <span class="item-main">
           <span class="item-name">${esc(a.name)}${a.beispiel ? '<span class="tag">Beispiel</span>' : ""}</span>
-          <span class="item-meta">${esc(a.ort)} · ${fmtStd(a.stunden)} vor Ort ${diffHtml(a.schwierigkeit)}</span>
+          <span class="item-meta">${esc(a.ort)} · ${fmtStd(a.stunden)} ${diffHtml(a.schwierigkeit)}</span>
         </span>
-        <span class="item-time">${r.geschaetzt ? "ca. " : ""}${fmtMin(r.min)}<small>${state.mode === "auto" ? "Auto" : "ÖV"}</small></span>
-      </button>`;
-      ul.appendChild(li);
-    }
+        <span class="item-side">
+          <span class="item-time">${r.geschaetzt ? "ca. " : ""}${fmtKurz(r.min)}</span>
+          ${wxHtml(w)}
+        </span>
+      </button></li>`;
+    }).join("");
 
+    // Hinweise
+    const n = [];
+    if (!roh) n.push(`<div class="notice" role="alert"><strong>Die Liste der Ausflüge fehlt.</strong><span>Die Datei aktivitaeten.js wurde nicht gefunden oder hat einen Fehler.</span><button type="button" class="btn klein gelb" data-act="reload">Seite neu laden</button></div>`);
+    if (wetter.status === "fehler") n.push(`<div class="notice" role="alert"><strong>Das Wetter kommt gerade nicht an.</strong><span>Die Ausflüge werden ohne Wetter angezeigt. ${esc(wetter.fehler)}</span><button type="button" class="btn klein gelb" data-act="wetter">Wetter nochmals laden</button></div>`);
+    if (daten.some(a => a.beispiel)) n.push(`<div class="notice leise">Mit «Beispiel» markierte Orte sind Platzhalter, bis deine Reels eingetragen sind.</div>`);
+    $("notice").innerHTML = n.join("");
+
+    // Karte
     if (map) {
       const sichtbar = new Set(liste.map(x => x.a.id));
       for (const [id, m] of markers) {
         if (sichtbar.has(id)) { if (!map.hasLayer(m)) m.addTo(map); }
         else if (map.hasLayer(m)) map.removeLayer(m);
-        m.getElement()?.querySelector(".pin")?.classList.toggle("active", id === aktiv);
+        const pin = m.getElement()?.querySelector(".pin");
+        pin?.classList.toggle("active", id === aktiv);
+        pin?.classList.toggle("gemacht", markiert[daten[id].name] === "gemacht");
       }
       const s = STARTS[state.start];
       if (homeMarker) homeMarker.setLatLng([s.lat, s.lng]).setTooltipContent(`Start: ${s.name}`);
-      else homeMarker = L.marker([s.lat, s.lng], { icon: L.divIcon({ className: "", html: '<div class="home"></div>', iconSize: [18, 18] }), keyboard: false, interactive: true })
-        .bindTooltip(`Start: ${s.name}`).addTo(map);
+      else homeMarker = L.marker([s.lat, s.lng], { icon: L.divIcon({ className: "", html: '<div class="home"></div>', iconSize: [20, 20] }), keyboard: false }).bindTooltip(`Start: ${s.name}`).addTo(map);
       const offen = aktiv != null && markers.get(aktiv);
       if (offen && map.hasLayer(offen) && offen.isPopupOpen()) offen.setPopupContent(popupHtml(daten[aktiv]));
     }
-
-    const hinweis = $("notice");
-    if (!roh) hinweis.innerHTML = `<div class="notice" role="alert"><strong>Die Liste der Ausflüge fehlt.</strong><span>Die Datei aktivitaeten.js wurde nicht gefunden oder hat einen Fehler.</span><button type="button" class="btn" onclick="location.reload()">Seite neu laden</button></div>`;
-    else hinweis.innerHTML = daten.some(a => a.beispiel) ? `<p class="empty" style="margin-top:0">Mit «Beispiel» markierte Orte sind Platzhalter. Sie werden durch deine Reels ersetzt.</p>` : "";
   }
 
   function setAktiv(id, oeffnen) {
@@ -433,38 +674,48 @@ h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-w
     document.querySelectorAll(".item").forEach(b => b.classList.toggle("active", +b.dataset.id === id));
     for (const [mid, m] of markers) m.getElement()?.querySelector(".pin")?.classList.toggle("active", mid === id);
     if (oeffnen && map && id != null) {
-      const m = markers.get(id);
-      if (matchMedia("(max-width: 760px)").matches) window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-      map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 11), { duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : .8 });
+      const m = markers.get(id), ruhig = mq("(prefers-reduced-motion: reduce)");
+      if (!map.hasLayer(m)) m.addTo(map);
+      if (mq("(max-width: 760px)")) window.scrollTo({ top: 0, behavior: ruhig ? "auto" : "smooth" });
+      map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 12), { duration: ruhig ? 0 : .8 });
       map.once("moveend", () => m.openPopup());
     }
+  }
+  function toggleMark(id, art) {
+    const name = daten[id].name;
+    if (markiert[name] === art) delete markiert[name]; else markiert[name] = art;
+    store.set("ausflug-markiert", markiert);
+    render();
   }
 
   // ---------- Bedienung ----------
   $("f-kat").innerHTML = Object.keys(KAT_NAME).filter(k => daten.some(a => a.kategorie === k))
-    .map(k => `<button type="button" class="chip" data-v="${k}" aria-pressed="false">${svg(k)}${KAT_NAME[k]}</button>`).join("");
-  for (const [grp, key] of [["f-zeit", "zeit"], ["f-start", "start"], ["f-mode", "mode"]])
-    $(grp).addEventListener("click", e => { const b = e.target.closest("button"); if (b) { state[key] = b.dataset.v; render(); } });
+    .map(k => `<button type="button" class="chip" data-v="${k}" aria-pressed="false">${I(ICONS[k])}${KAT_NAME[k]}</button>`).join("");
+  for (const [grp, key] of [["f-zeit", "zeit"], ["f-start", "start"], ["f-mode", "mode"], ["f-zeigen", "zeigen"], ["f-tag", "tag"]])
+    $(grp).addEventListener("click", e => { const b = e.target.closest("button"); if (b) { state[key] = key === "tag" ? +b.dataset.v : b.dataset.v; render(); } });
   $("f-kat").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     const v = b.dataset.v; state.kat = state.kat.includes(v) ? state.kat.filter(x => x !== v) : [...state.kat, v]; render();
   });
   $("f-max").addEventListener("input", e => { state.max = +e.target.value; render(); });
   $("f-saison").addEventListener("change", e => { state.saison = e.target.checked; render(); });
-  $("f-regen").addEventListener("change", e => { state.regen = e.target.checked; render(); });
-  $("list").addEventListener("click", e => {
-    const b = e.target.closest(".item"); if (!b) return;
-    const id = +b.dataset.id;
-    if (!map) { b.blur(); return; }
-    setAktiv(id, true);
+  $("f-wetter").addEventListener("change", e => { state.wetter = e.target.checked; render(); });
+  const oeffne = e => { const b = e.target.closest("[data-id]"); if (b && map) setAktiv(+b.dataset.id, true); };
+  $("list").addEventListener("click", oeffne);
+  $("tipp").addEventListener("click", oeffne);
+  $("notice").addEventListener("click", e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    if (b.dataset.act === "reload") location.reload(); else ladeWetter(true);
   });
   $("surprise").addEventListener("click", () => {
     const liste = gefiltert(); if (!liste.length) return;
     const andere = liste.length > 1 ? liste.filter(x => x.a.id !== aktiv) : liste;
     setAktiv(andere[Math.floor(Math.random() * andere.length)].a.id, true);
   });
+  $("more").open = !mq("(max-width: 760px)");
 
   render();
+  ladeWetter();
 })();
 </script>
 </body>

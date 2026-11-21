@@ -6,7 +6,22 @@ Interaktive Karte der Schweiz mit gesammelten Wanderungen und Ausflügen aus Ree
 
 Alle Orte stehen in [`aktivitaeten.js`](aktivitaeten.js). Die Felder sind oben in der Datei erklärt. Einträge mit `beispiel: true` sind Platzhalter.
 
-Die Anreise wird über die Luftlinie grob geschätzt. Wer die genaue Zeit kennt, trägt sie unter `anreise` ein.
+Danach die echten Anreisezeiten holen (Auto über OpenStreetMap-Routing, ÖV über den SBB-Fahrplan von transport.opendata.ch, Samstag 08:00):
+
+```
+node tools/anreise.mjs
+```
+
+Das schreibt `anreise.js`. Ausflüge ohne Eintrag dort werden über die Luftlinie geschätzt und mit «ca.» angezeigt.
+
+App-Icons und Vorschaubild neu erzeugen: `python tools/bilder.py`
+
+## Funktionen
+
+- Wetter pro Ausflug für heute, morgen und das Wochenende (Open-Meteo, ohne Schlüssel, 1 h zwischengespeichert)
+- Tipp des Tages: bestes Wetter, Merkliste und kurze Anreise zuerst
+- Merkliste und «Gemacht», gespeichert im jeweiligen Browser
+- Kann auf dem Handy wie eine App auf den Startbildschirm gelegt werden
 
 ## Lokal ansehen
 
