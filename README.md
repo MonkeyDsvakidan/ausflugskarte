@@ -18,10 +18,13 @@ App-Icons und Vorschaubild neu erzeugen: `python tools/bilder.py`
 
 ## Funktionen
 
-- Wetter pro Ausflug für heute, morgen und das Wochenende (Open-Meteo, ohne Schlüssel, 1 h zwischengespeichert)
-- Tipp des Tages: bestes Wetter, Merkliste und kurze Anreise zuerst
-- Merkliste und «Gemacht», gespeichert im jeweiligen Browser
-- Kann auf dem Handy wie eine App auf den Startbildschirm gelegt werden
+- 3D-Karte (MapLibre) mit swisstopo-Vektorkarte, Landeskarte, Luftbild und Nachtkarte; Wanderwege als Ebene; 3D-Gelände und 3D-Rundflug ums Ziel
+- Schwebendes Glas-Panel am Computer, ziehbares Bottom-Sheet auf dem Handy
+- «Ich habe … am …» als Hauptfrage, Tipp als gelber Wegweiser, «Überrasch mich» mit Fallblatt-Animation (Taste Z)
+- Suche (Taste /), Filter, Start ab Geroldswil, Portein oder dem eigenen Standort
+- Detailansicht: Wetter der Woche, Sonnenuntergang mit «losfahren bis», Reel direkt abspielen, Route, ÖV-Fahrplan, Teilen-Link (#name)
+- Merkliste, «Gemacht» und Fortschrittsring, gespeichert im jeweiligen Browser
+- Hell, dunkel oder wie das Gerät; als App auf den Startbildschirm legbar
 
 ## Lokal ansehen
 
