@@ -205,7 +205,7 @@
   const effBasis = () => state.basis === "auto" ? (dunkel() ? "nacht" : "hell") : state.basis;
 
   const glOk = (() => { try { const c = document.createElement("canvas"); return !!window.maplibregl && !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; } })();
-  let map = null, aktuellerStil = null, stilGeladen = false, kachelFehler = 0;
+  let map = null, aktuellerStil = null, stilGeladen = false, kachelFehler = 0, kartenBereit = false;
   const marker = new Map(); // key -> { m, el }
   let homeMarker = null, cluster = null, routeDaten = { type: "FeatureCollection", features: [] }, dashTimer = null, orbit = null, ersteMarker = true;
 
@@ -264,6 +264,7 @@
       maxPitch: 75, canvasContextAttributes: { preserveDrawingBuffer: true }, preserveDrawingBuffer: true, attributionControl: { compact: true }, dragRotate: true, cooperativeGestures: false, fadeDuration: 150
     });
     $$("#basen .basis").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === state.basis)));
+    map.once("idle", () => { kartenBereit = true; });
     map.on("style.load", () => { stilGeladen = true; overlaysHinzu(); map.once("idle", () => map.triggerRepaint()); });
     map.on("error", e => {
       const istKachel = !!(e?.tile || e?.sourceId);
@@ -335,7 +336,9 @@
 
   function markerDaten(liste) {
     if (!cluster) return;
-    cluster.load(liste.map(({ a }) => ({ type: "Feature", properties: { id: a.id }, geometry: { type: "Point", coordinates: [a.lng, a.lat] } })));
+    const ids = liste.map(({ a }) => a.id);
+    if (state.detail != null && !ids.includes(state.detail)) ids.push(state.detail); // geöffneter Ausflug bleibt sichtbar
+    cluster.load(ids.map(id => ({ type: "Feature", properties: { id }, geometry: { type: "Point", coordinates: [daten[id].lng, daten[id].lat] } })));
     // Ausgewählter Ausflug bleibt sichtbar, auch wenn ein Filter ihn ausblendet
     markerAktualisieren();
   }
@@ -573,11 +576,16 @@
     document.title = `${a.name} · Ausflugskarte`;
     if (istHandy() && sheet.snap === "peek") setSnap("half");
     if (map) {
-      routeZeigen(a); markerAktualisieren();
+      routeZeigen(a); markerDaten(gefiltert());
       if (kamera) {
-        const s = STARTS[state.start] || STARTS.geroldswil;
-        const b = new maplibregl.LngLatBounds([a.lng, a.lat], [a.lng, a.lat]).extend([s.lng, s.lat]);
-        map.fitBounds(b, { padding: camPad(), maxZoom: 11.5, pitch: state.drei ? 50 : 0, duration: ruhig() ? 0 : 1400 });
+        let gefahren = false;
+        const fahre = () => { if (gefahren || state.detail !== id) return; gefahren = true;
+          const s = STARTS[state.start] || STARTS.geroldswil;
+          const b = new maplibregl.LngLatBounds([a.lng, a.lat], [a.lng, a.lat]).extend([s.lng, s.lat]);
+          map.fitBounds(b, { padding: camPad(), maxZoom: 11.5, pitch: state.drei ? 50 : 0, duration: ruhig() ? 0 : 1400 });
+        };
+        if (kartenBereit) fahre();
+        else { map.once("idle", fahre); setTimeout(fahre, 4000); } // beim direkten Öffnen per Link erst, wenn die Karte fertig geladen ist
       }
     }
   }
@@ -590,7 +598,7 @@
     if (!ruhig()) { vl.classList.remove("in", "in-back"); void vl.offsetWidth; vl.classList.add("in-back"); }
     document.title = "Ausflugskarte Schweiz";
     if (!fromPop) { if (pushedDetail) { pushedDetail = false; history.back(); } else history.replaceState(null, "", location.pathname + location.search); }
-    if (map) { routeZeigen(null); markerAktualisieren(); }
+    if (map) { routeZeigen(null); markerDaten(gefiltert()); }
   }
   addEventListener("popstate", () => {
     const a = nachSlug.get(decodeURIComponent(location.hash.slice(1)));
