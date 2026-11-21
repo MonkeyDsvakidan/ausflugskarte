@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ausflugskarte Schweiz</title>
+<meta name="description" content="Gesammelte Wanderungen und Ausflüge aus Reels, gefiltert nach freier Zeit und Anreise.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Layout: Seitenleiste mit Filtern + Liste links, Karte rechts; auf dem Handy Karte oben, Liste darunter.
+   Farben angelehnt an die Schweizer Wanderweg-Signalisation: gelb = Akzent, rot-weiss / blau-weiss nur für die Schwierigkeit. */
+:root {
+  --bg: oklch(0.985 0.004 250);
+  --surface: oklch(1 0 0);
+  --fg: oklch(0.24 0.02 250);
+  --muted: oklch(0.47 0.02 250);
+  --line: rgb(0 0 0 / .1);
+  --accent: oklch(0.87 0.17 95);      /* Wanderweg-Gelb */
+  --accent-ink: oklch(0.24 0.03 90);  /* Text auf Gelb */
+  --berg: oklch(0.55 0.2 27);         /* Bergwanderweg rot */
+  --alpin: oklch(0.52 0.15 255);      /* Alpinwanderweg blau */
+  --pin: oklch(0.28 0.02 250);
+  --shadow: 0 1px 2px rgb(0 0 0 / .12), 0 4px 16px rgb(0 0 0 / .08);
+
+  --f-head: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r1: 6px; --r2: 12px; --r-pill: 999px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.2 0.012 250); --surface: oklch(0.25 0.014 250); --fg: oklch(0.94 0.008 250);
+    --muted: oklch(0.74 0.015 250); --line: rgb(255 255 255 / .12); --pin: oklch(0.32 0.02 250);
+    --berg: oklch(0.68 0.17 27); --alpin: oklch(0.7 0.13 255);
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: oklch(0.2 0.012 250); --surface: oklch(0.25 0.014 250); --fg: oklch(0.94 0.008 250);
+  --muted: oklch(0.74 0.015 250); --line: rgb(255 255 255 / .12); --pin: oklch(0.32 0.02 250);
+  --berg: oklch(0.68 0.17 27); --alpin: oklch(0.7 0.13 255);
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .3); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--alpin); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: minmax(320px, 400px) 1fr; height: 100dvh; }
+.side { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--line); background: var(--bg); }
+.side-head { padding: var(--s5) max(var(--s5), env(safe-area-inset-left, 0px)) var(--s4); display: grid; gap: var(--s4); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: var(--s3); }
+.brand svg { flex: none; }
+h1 { font: 800 22px/1.1 var(--f-head); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+.filters { display: grid; gap: var(--s3); }
+.row { display: grid; gap: var(--s2); }
+.label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r2); padding: 3px; gap: 3px; }
+.seg button { flex: 1; border: 0; background: none; padding: 8px 6px; border-radius: calc(var(--r2) - 3px); cursor: pointer; font-weight: 500; font-size: 14px; min-height: 40px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.range { display: flex; align-items: center; gap: var(--s3); }
+.range input { flex: 1; accent-color: var(--fg); }
+.range output { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-pill); padding: 6px 12px; font-size: 14px; cursor: pointer; min-height: 36px; }
+.chip svg { width: 16px; height: 16px; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.toggles { display: flex; flex-wrap: wrap; gap: var(--s4); font-size: 14px; }
+.toggles label { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; min-height: 32px; }
+.toggles input { width: 18px; height: 18px; accent-color: var(--fg); }
+
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s3) var(--s5); }
+.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.btn { display: inline-flex; align-items: center; gap: var(--s2); border: 0; border-radius: var(--r-pill); padding: 10px 16px; min-height: 44px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); }
+.btn svg { width: 18px; height: 18px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:active { transform: scale(.97); }
+
+.list { list-style: none; margin: 0; padding: 0 var(--s3) var(--s5); overflow-y: auto; flex: 1; min-height: 0; display: grid; align-content: start; gap: 2px; }
+.item { display: grid; grid-template-columns: 36px 1fr auto; gap: var(--s3); align-items: center; padding: var(--s3); border-radius: var(--r2); cursor: pointer; border: 0; background: none; text-align: left; width: 100%; }
+.item:hover, .item.active { background: var(--surface); box-shadow: var(--shadow); }
+.ico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--pin); color: var(--accent); }
+.ico svg { width: 18px; height: 18px; }
+.item-main { min-width: 0; }
+.item-name { font-weight: 600; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.item-meta { font-size: 13px; color: var(--muted); }
+.item-time { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.item-time small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); border: 1px dashed var(--muted); border-radius: var(--r1); padding: 0 5px; }
+
+/* Schwierigkeit wie die Wegmarkierung: T1 gelb, T2–T3 weiss-rot-weiss, T4+ weiss-blau-weiss */
+.diff { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.diff i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; border: 1px solid var(--line); }
+.diff.t1 i { background: var(--accent); }
+.diff.t2 i { background: linear-gradient(white 0 30%, var(--berg) 30% 70%, white 70%); }
+.diff.t4 i { background: linear-gradient(white 0 30%, var(--alpin) 30% 70%, white 70%); }
+
+.empty, .notice { margin: var(--s4) var(--s5); padding: var(--s4); border-radius: var(--r2); border: 1px dashed var(--line); color: var(--muted); font-size: 14px; }
+.notice { border-style: solid; background: var(--surface); color: var(--fg); display: grid; gap: var(--s2); }
+.notice button { justify-self: start; }
+
+.mapwrap { position: relative; min-width: 0; min-height: 0; }
+#map { position: absolute; inset: 0; background: var(--surface); }
+.map-error { position: absolute; z-index: 500; left: var(--s4); right: var(--s4); top: var(--s4); }
+
+/* Leaflet an das Design anpassen */
+.leaflet-container { font: inherit; }
+.leaflet-popup-content-wrapper { border-radius: var(--r2); background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+.leaflet-popup-tip { background: var(--surface); }
+.leaflet-popup-content { margin: var(--s4); min-width: 230px; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--muted); width: 32px; height: 32px; font-size: 22px; }
+.leaflet-control-layers, .leaflet-bar a { background: var(--surface); color: var(--fg); }
+.leaflet-control-layers { border-radius: var(--r2) !important; border: 1px solid var(--line) !important; box-shadow: var(--shadow) !important; }
+.leaflet-control-layers-expanded { padding: var(--s3); font-size: 14px; }
+.leaflet-control-layers label { min-height: 28px; display: flex; align-items: center; }
+.leaflet-control-attribution { font-size: 11px; }
+.pop h3 { font: 800 18px/1.15 var(--f-head); margin: 0 28px 2px 0; }
+.pop .ort { color: var(--muted); font-size: 13px; margin: 0 0 var(--s2); }
+.pop p { margin: var(--s2) 0; }
+.pop .facts { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); font-size: 13px; font-variant-numeric: tabular-nums; margin: var(--s2) 0; }
+.pop .facts b { font-weight: 600; }
+.pop .links { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.pop .links a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; font-size: 13px; padding: 8px 12px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--fg); min-height: 36px; }
+.pop .links a.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.pop .links svg { width: 15px; height: 15px; }
+.pop .hint { font-size: 12px; color: var(--muted); margin-top: var(--s2); }
+
+.pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--pin); border: 2px solid white; box-shadow: 0 2px 6px rgb(0 0 0 / .35); display: grid; place-items: center; transition: transform .15s; }
+.pin svg { width: 16px; height: 16px; transform: rotate(45deg); color: var(--accent); }
+.pin.active { background: var(--accent); }
+.pin.active svg { color: var(--accent-ink); }
+.home { width: 18px; height: 18px; border-radius: 50%; background: var(--alpin); border: 3px solid white; box-shadow: 0 1px 4px rgb(0 0 0 / .4); }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 48dvh 1fr; height: auto; min-height: 100dvh; }
+  .mapwrap { grid-row: 1; position: sticky; top: 0; z-index: 1; height: 48dvh; }
+  .side { grid-row: 2; border-right: 0; }
+  .side-head { padding: var(--s4) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s4) max(var(--s4), env(safe-area-inset-left, 0px)); }
+  .list-head { padding: var(--s3) var(--s4); }
+  .list { overflow: visible; padding-inline: var(--s2); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="side-head">
+      <div class="brand">
+        <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true"><rect x="3" y="3" width="30" height="30" rx="4" transform="rotate(45 18 18)" fill="var(--accent)"/><path d="M10 23l5-7 3 4 2-3 6 6z" fill="var(--accent-ink)"/></svg>
+        <div>
+          <h1>Ausflugskarte</h1>
+          <p class="sub">Was machen wir, wenn wir Zeit haben?</p>
+        </div>
+      </div>
+
+      <div class="filters">
+        <div class="row">
+          <span class="label" id="l-zeit">Ich habe</span>
+          <div class="seg" role="group" aria-labelledby="l-zeit" id="f-zeit">
+            <button type="button" data-v="halb" aria-pressed="false">Halber Tag</button>
+            <button type="button" data-v="ganz" aria-pressed="true">Ganzer Tag</button>
+            <button type="button" data-v="wochenende" aria-pressed="false">Wochenende</button>
+          </div>
+        </div>
+        <div class="two">
+          <div class="row">
+            <span class="label" id="l-start">Start</span>
+            <div class="seg" role="group" aria-labelledby="l-start" id="f-start">
+              <button type="button" data-v="geroldswil" aria-pressed="true">Geroldswil</button>
+              <button type="button" data-v="portein" aria-pressed="false">Portein</button>
+            </div>
+          </div>
+          <div class="row">
+            <span class="label" id="l-mode">Mit</span>
+            <div class="seg" role="group" aria-labelledby="l-mode" id="f-mode">
+              <button type="button" data-v="auto" aria-pressed="true">Auto</button>
+              <button type="button" data-v="oev" aria-pressed="false">ÖV</button>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <label class="label" for="f-max">Anreise höchstens</label>
+          <div class="range">
+            <input type="range" id="f-max" min="30" max="300" step="15" value="180">
+            <output id="o-max" for="f-max">3 h</output>
+          </div>
+        </div>
+        <div class="row">
+          <span class="label" id="l-kat">Was</span>
+          <div class="chips" role="group" aria-labelledby="l-kat" id="f-kat"></div>
+        </div>
+        <div class="toggles">
+          <label><input type="checkbox" id="f-saison" checked> Passt zur Jahreszeit</label>
+          <label><input type="checkbox" id="f-regen"> Geht bei Regen</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="list-head">
+      <span class="count" id="count" aria-live="polite">Lade …</span>
+      <button type="button" class="btn" id="surprise">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
+        Überrasch mich
+      </button>
+    </div>
+    <div id="notice"></div>
+    <ul class="list" id="list"></ul>
+  </aside>
+
+  <main class="mapwrap">
+    <div id="map" role="region" aria-label="Karte der Ausflüge"></div>
+    <div class="map-error" id="map-error" hidden></div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="aktivitaeten.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Grunddaten ----------
+  const STARTS = {
+    geroldswil: { name: "Geroldswil", lat: 47.4217, lng: 8.4106, extra: 0 },
+    portein:    { name: "Portein",    lat: 46.7045, lng: 9.4030, extra: 15 } // Bergstrasse bis ins Tal
+  };
+  const ZEIT_MAX = { halb: 5.5, ganz: 11, wochenende: Infinity }; // Stunden inkl. Hin- und Rückweg
+  const ICONS = {
+    wandern:    '<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>',
+    see:        '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+    wasserfall: '<path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.2-.6-2.3-1.8-3.2C8 8.1 7.4 6.8 7 5.4c-.3 1.4-1 2.7-2.2 3.7C3.6 10 3 11.1 3 12.3c0 2.2 1.8 4 4 4z"/><path d="M12.6 6.6A11 11 0 0 0 14 3c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.9 4.9"/>',
+    aussicht:   '<path d="M12 2v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="M20 12h2"/><path d="m19.1 4.9-1.4 1.4"/><path d="M2 12h2"/><path d="M16 12a4 4 0 0 0-8 0"/><path d="M2 20h20"/><path d="m8 16 4-4 4 4"/>',
+    kultur:     '<path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m12 2 8 5H4z"/>',
+    indoor:     '<path d="M3 10.2 12 3l9 7.2V21H3z"/><path d="M9 21v-6h6v6"/>'
+  };
+  const KAT_NAME = { wandern: "Wandern", see: "See & Baden", wasserfall: "Wasserfall", aussicht: "Aussicht", kultur: "Stadt & Kultur", indoor: "Drinnen" };
+  const SAISON_JETZT = ["winter", "winter", "fruehling", "fruehling", "fruehling", "sommer", "sommer", "sommer", "herbst", "herbst", "herbst", "winter"][new Date().getMonth()];
+  const SAISON_NAME = { fruehling: "Frühling", sommer: "Sommer", herbst: "Herbst", winter: "Winter" };
+
+  const svg = (k, extra = "") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${ICONS[k] || ICONS.wandern}</svg>`;
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch { return null; } };
+  const fmtMin = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? " " + String(m % 60).padStart(2, "0") : ""}`;
+  const fmtStd = h => (Math.round(h * 2) / 2).toString().replace(".", ",") + " h";
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+  // ---------- Anreise ----------
+  // Genaue Minuten aus den Daten, sonst grobe Schätzung über die Luftlinie.
+  function km(a, b) {
+    const R = 6371, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function anreise(a, startKey, mode) {
+    const exakt = a.anreise?.[startKey]?.[mode];
+    if (Number.isFinite(exakt)) return { min: exakt, geschaetzt: false };
+    const s = STARTS[startKey], d = km(s, a) * 1.35;
+    const auto = d / (d < 40 ? 50 : 72) * 60 + 10 + s.extra;
+    const min = mode === "auto" ? auto : auto * 1.5 + 15;
+    return { min: Math.max(10, Math.round(min / 5) * 5), geschaetzt: true };
+  }
+
+  // ---------- Daten prüfen ----------
+  const roh = Array.isArray(window.AKTIVITAETEN) ? window.AKTIVITAETEN : null;
+  const daten = (roh || []).filter(a => Number.isFinite(a?.lat) && Number.isFinite(a?.lng) && a.name)
+    .map((a, i) => ({ ...a, id: i, kategorie: ICONS[a.kategorie] ? a.kategorie : "wandern", stunden: Number(a.stunden) || 3, saison: Array.isArray(a.saison) ? a.saison : [] }));
+
+  // ---------- Zustand ----------
+  const gespeichert = store.get("ausflug-filter") || {};
+  const state = Object.assign({ zeit: "ganz", start: "geroldswil", mode: "auto", max: 180, kat: [], saison: true, regen: false }, gespeichert);
+  let aktiv = null;
+
+  // ---------- Karte ----------
+  const $ = id => document.getElementById(id);
+  let map = null, markers = new Map(), homeMarker = null;
+  const mapErr = $("map-error");
+
+  function zeigeKartenFehler(text) {
+    mapErr.hidden = false;
+    mapErr.innerHTML = `<div class="notice" role="alert"><strong>Die Karte lässt sich gerade nicht laden.</strong><span>${esc(text)}</span><button type="button" class="btn" id="reload">Seite neu laden</button></div>`;
+    $("reload").onclick = () => location.reload();
+  }
+
+  if (!window.L) {
+    zeigeKartenFehler("Prüfe deine Internetverbindung. Die Liste links funktioniert trotzdem, inklusive Links zu Reel und Route.");
+  } else {
+    const geo = (layer, ext) => `https://wmts.geo.admin.ch/1.0.0/${layer}/default/current/3857/{z}/{x}/{y}.${ext}`;
+    const attr = '&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener">swisstopo</a>';
+    const landeskarte = L.tileLayer(geo("ch.swisstopo.pixelkarte-farbe", "jpeg"), { maxZoom: 19, maxNativeZoom: 18, attribution: attr });
+    const grau = L.tileLayer(geo("ch.swisstopo.pixelkarte-grau", "jpeg"), { maxZoom: 19, maxNativeZoom: 18, attribution: attr });
+    const luftbild = L.tileLayer(geo("ch.swisstopo.swissimage", "jpeg"), { maxZoom: 19, attribution: attr });
+    const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' });
+    const wanderwege = L.tileLayer(geo("ch.swisstopo.swisstlm3d-wanderwege", "png"), { minZoom: 10, maxZoom: 19, maxNativeZoom: 18, opacity: .9, attribution: attr }); // erst ab Regionen-Zoom, sonst nur Farbfläche
+
+    map = L.map("map", { zoomControl: true, minZoom: 7, maxBounds: [[45.2, 5.3], [48.3, 11.1]], maxBoundsViscosity: .8 });
+    map.fitBounds([[45.82, 5.96], [47.81, 10.49]]);
+    const basis = { "Landeskarte": landeskarte, "Landeskarte grau": grau, "Luftbild": luftbild, "OpenStreetMap": osm };
+    const basisName = store.get("ausflug-basis");
+    (basis[basisName] || landeskarte).addTo(map);
+    if (store.get("ausflug-wanderwege") !== false) wanderwege.addTo(map);
+    L.control.layers(basis, { "Wanderwege": wanderwege }, { collapsed: matchMedia("(max-width: 760px)").matches }).addTo(map);
+    map.on("baselayerchange", e => store.set("ausflug-basis", e.name));
+    map.on("overlayadd overlayremove", e => { if (e.layer === wanderwege) store.set("ausflug-wanderwege", e.type === "overlayadd"); });
+
+    let kachelFehler = 0;
+    [landeskarte, grau, luftbild, osm].forEach(l => l.on("tileerror", () => {
+      if (++kachelFehler === 8) zeigeKartenFehler("Die Kartenbilder von swisstopo kommen nicht an. Prüfe die Verbindung oder wähle oben rechts eine andere Karte.");
+    }));
+    [landeskarte, grau, luftbild, osm].forEach(l => l.on("tileload", () => { kachelFehler = 0; mapErr.hidden = true; }));
+
+    for (const a of daten) {
+      const icon = L.divIcon({ className: "", html: `<div class="pin">${svg(a.kategorie)}</div>`, iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -32] });
+      const m = L.marker([a.lat, a.lng], { icon, title: a.name, keyboard: true }).bindPopup(() => popupHtml(a), { maxWidth: 300, autoPanPadding: [24, 24] });
+      m.on("popupopen", () => setAktiv(a.id, false));
+      m.on("popupclose", () => { if (aktiv === a.id) setAktiv(null, false); });
+      markers.set(a.id, m);
+    }
+  }
+
+  function popupHtml(a) {
+    const r = anreise(a, state.start, state.mode), s = STARTS[state.start];
+    const total = a.stunden + 2 * r.min / 60;
+    const reel = safeUrl(a.link);
+    const travel = state.mode === "auto" ? "driving" : "transit";
+    const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(s.name + ", Schweiz")}&destination=${a.lat},${a.lng}&travelmode=${travel}`;
+    return `<div class="pop">
+      <h3>${esc(a.name)}</h3>
+      <p class="ort">${esc(a.ort)} · ${esc(KAT_NAME[a.kategorie])}${a.beispiel ? ' · <span class="tag">Beispiel</span>' : ""}</p>
+      ${a.beschreibung ? `<p>${esc(a.beschreibung)}</p>` : ""}
+      <div class="facts">
+        <span>Vor Ort <b>${fmtStd(a.stunden)}</b></span>
+        <span>Anreise <b>${r.geschaetzt ? "ca. " : ""}${fmtMin(r.min)}</b></span>
+        <span>Total <b>${fmtStd(total)}</b></span>
+        ${diffHtml(a.schwierigkeit)}
+      </div>
+      <div class="links">
+        ${reel ? `<a class="primary" href="${esc(reel)}" target="_blank" rel="noopener">${playSvg} Reel ansehen</a>` : ""}
+        <a href="${esc(route)}" target="_blank" rel="noopener">${routeSvg} Route ab ${esc(s.name)}</a>
+      </div>
+      ${r.geschaetzt ? `<p class="hint">Anreise grob geschätzt über die Luftlinie. Genaue Zeit über «Route».</p>` : ""}
+    </div>`;
+  }
+  const playSvg = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>';
+  const routeSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>';
+  function diffHtml(t) {
+    const n = /^T([1-6])$/.exec(t || "");
+    if (!n) return "";
+    const c = n[1] === "1" ? "t1" : n[1] <= "3" ? "t2" : "t4";
+    const name = c === "t1" ? "Wanderweg" : c === "t2" ? "Bergwanderweg" : "Alpinwanderweg";
+    return `<span class="diff ${c}" title="${name}"><i aria-hidden="true"></i>${esc(t)}</span>`;
+  }
+
+  // ---------- Filter ----------
+  function gefiltert() {
+    return daten.map(a => ({ a, r: anreise(a, state.start, state.mode) }))
+      .filter(({ a, r }) =>
+        r.min <= state.max &&
+        a.stunden + 2 * r.min / 60 <= ZEIT_MAX[state.zeit] &&
+        (!state.kat.length || state.kat.includes(a.kategorie)) &&
+        (!state.saison || !a.saison.length || a.saison.includes(SAISON_JETZT)) &&
+        (!state.regen || a.regen))
+      .sort((x, y) => x.r.min - y.r.min);
+  }
+
+  function render() {
+    store.set("ausflug-filter", state);
+    for (const [grp, key] of [["f-zeit", "zeit"], ["f-start", "start"], ["f-mode", "mode"]])
+      $(grp).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
+    $("f-kat").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(state.kat.includes(b.dataset.v))));
+    $("f-max").value = state.max; $("o-max").textContent = fmtMin(+state.max);
+    $("f-saison").checked = state.saison; $("f-regen").checked = state.regen;
+    $("f-saison").parentElement.lastChild.textContent = ` Passt zum ${SAISON_NAME[SAISON_JETZT]}`;
+
+    const liste = gefiltert();
+    $("count").textContent = `${liste.length} von ${daten.length} Ausflügen`;
+    $("surprise").disabled = !liste.length;
+
+    const ul = $("list");
+    ul.innerHTML = "";
+    if (!daten.length) {
+      ul.innerHTML = `<li class="empty">Noch keine Ausflüge eingetragen. Neue Orte kommen in die Datei <code>aktivitaeten.js</code>.</li>`;
+    } else if (!liste.length) {
+      ul.innerHTML = `<li class="empty">Nichts passt zu diesen Filtern. Erhöhe die maximale Anreise oder nimm ein paar Filter weg.</li>`;
+    }
+    for (const { a, r } of liste) {
+      const li = document.createElement("li");
+      li.innerHTML = `<button type="button" class="item${aktiv === a.id ? " active" : ""}" data-id="${a.id}">
+        <span class="ico">${svg(a.kategorie)}</span>
+        <span class="item-main">
+          <span class="item-name">${esc(a.name)}${a.beispiel ? '<span class="tag">Beispiel</span>' : ""}</span>
+          <span class="item-meta">${esc(a.ort)} · ${fmtStd(a.stunden)} vor Ort ${diffHtml(a.schwierigkeit)}</span>
+        </span>
+        <span class="item-time">${r.geschaetzt ? "ca. " : ""}${fmtMin(r.min)}<small>${state.mode === "auto" ? "Auto" : "ÖV"}</small></span>
+      </button>`;
+      ul.appendChild(li);
+    }
+
+    if (map) {
+      const sichtbar = new Set(liste.map(x => x.a.id));
+      for (const [id, m] of markers) {
+        if (sichtbar.has(id)) { if (!map.hasLayer(m)) m.addTo(map); }
+        else if (map.hasLayer(m)) map.removeLayer(m);
+        m.getElement()?.querySelector(".pin")?.classList.toggle("active", id === aktiv);
+      }
+      const s = STARTS[state.start];
+      if (homeMarker) homeMarker.setLatLng([s.lat, s.lng]).setTooltipContent(`Start: ${s.name}`);
+      else homeMarker = L.marker([s.lat, s.lng], { icon: L.divIcon({ className: "", html: '<div class="home"></div>', iconSize: [18, 18] }), keyboard: false, interactive: true })
+        .bindTooltip(`Start: ${s.name}`).addTo(map);
+      const offen = aktiv != null && markers.get(aktiv);
+      if (offen && map.hasLayer(offen) && offen.isPopupOpen()) offen.setPopupContent(popupHtml(daten[aktiv]));
+    }
+
+    const hinweis = $("notice");
+    if (!roh) hinweis.innerHTML = `<div class="notice" role="alert"><strong>Die Liste der Ausflüge fehlt.</strong><span>Die Datei aktivitaeten.js wurde nicht gefunden oder hat einen Fehler.</span><button type="button" class="btn" onclick="location.reload()">Seite neu laden</button></div>`;
+    else hinweis.innerHTML = daten.some(a => a.beispiel) ? `<p class="empty" style="margin-top:0">Mit «Beispiel» markierte Orte sind Platzhalter. Sie werden durch deine Reels ersetzt.</p>` : "";
+  }
+
+  function setAktiv(id, oeffnen) {
+    aktiv = id;
+    document.querySelectorAll(".item").forEach(b => b.classList.toggle("active", +b.dataset.id === id));
+    for (const [mid, m] of markers) m.getElement()?.querySelector(".pin")?.classList.toggle("active", mid === id);
+    if (oeffnen && map && id != null) {
+      const m = markers.get(id);
+      if (matchMedia("(max-width: 760px)").matches) window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 11), { duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : .8 });
+      map.once("moveend", () => m.openPopup());
+    }
+  }
+
+  // ---------- Bedienung ----------
+  $("f-kat").innerHTML = Object.keys(KAT_NAME).filter(k => daten.some(a => a.kategorie === k))
+    .map(k => `<button type="button" class="chip" data-v="${k}" aria-pressed="false">${svg(k)}${KAT_NAME[k]}</button>`).join("");
+  for (const [grp, key] of [["f-zeit", "zeit"], ["f-start", "start"], ["f-mode", "mode"]])
+    $(grp).addEventListener("click", e => { const b = e.target.closest("button"); if (b) { state[key] = b.dataset.v; render(); } });
+  $("f-kat").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const v = b.dataset.v; state.kat = state.kat.includes(v) ? state.kat.filter(x => x !== v) : [...state.kat, v]; render();
+  });
+  $("f-max").addEventListener("input", e => { state.max = +e.target.value; render(); });
+  $("f-saison").addEventListener("change", e => { state.saison = e.target.checked; render(); });
+  $("f-regen").addEventListener("change", e => { state.regen = e.target.checked; render(); });
+  $("list").addEventListener("click", e => {
+    const b = e.target.closest(".item"); if (!b) return;
+    const id = +b.dataset.id;
+    if (!map) { b.blur(); return; }
+    setAktiv(id, true);
+  });
+  $("surprise").addEventListener("click", () => {
+    const liste = gefiltert(); if (!liste.length) return;
+    const andere = liste.length > 1 ? liste.filter(x => x.a.id !== aktiv) : liste;
+    setAktiv(andere[Math.floor(Math.random() * andere.length)].a.id, true);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
